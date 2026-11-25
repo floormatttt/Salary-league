@@ -12,13 +12,14 @@
  *      rosters with the last sync.
  *   3. Drop  -> renames the player's Master list row to "Name (cap hold)"
  *              and adds "Name (cap hold)" to the CAP HOLDS section of the
- *              team that actually dropped him (even right after a trade).
+ *              team that actually dropped him (even right after a trade),
+ *              and to the site's Cap Holds table.
  *      Add   -> creates a new Master list row (if he isn't already there)
  *              marked "PENDING — needs contract" and waits for your input.
  *      Trade -> logged only (contracts follow the player automatically).
  *   4. Writes PF / W / L / T into Team Power Rankings.
- *   5. Keeps player names linked to the player card web app
- *      (see PlayerCard.gs for setup).
+ *   5. Keeps player names linked to the league site's player card
+ *      (see PlayerCard.gs for setup), then clears the site's cache.
  *
  * Setup:
  *   - Run syncSleeperLeague once. The FIRST run only saves a baseline
@@ -76,12 +77,12 @@ function onOpen() {
     .addItem("Reset change baseline", "resetBaseline")
     .addItem("Turn on 5-minute auto sync", "createFiveMinuteTrigger")
     .addSeparator()
-    .addItem("Open player popup", "showPlayerPopup")
-    .addItem("Open popup automatically when sheet opens", "turnOnPopupOnOpen")
-    .addItem("Stop opening popup automatically", "turnOffPopupOnOpen")
-    .addItem("Set player card link…", "setCardUrl")
+    .addItem("Set site link…", "setCardUrl")
     .addItem("Refresh player links now", "refreshPlayerLinks")
-    .addItem("Clear player card cache", "clearCardCache")
+    .addItem("Clear site + player card cache", "clearCardCache")
+    .addSeparator()
+    .addItem("Set commissioner passcode…", "setCommissionerPasscode")
+    .addItem("Set up site tables", "setupSiteTables")
     .addToUi();
 }
 
@@ -116,6 +117,8 @@ function syncSleeperLeague() {
     // Player card links: never let these break the sync
     try { linkRosters_(ss); } catch (e) { Logger.log("Roster links: " + e); }
     try { maybeLinkAllPlayers_(ss); } catch (e) { Logger.log("Player links: " + e); }
+
+    clearSiteCache_(); // the site shows the new rosters/log right away
 
     Logger.log("Sync complete.");
   } finally {
@@ -493,6 +496,7 @@ function applyTransactions_(ss, txns, seen, players, teamMap) {
       const holdName = (master.masterName || name) + " (cap hold)";
       const tab = t.code ? addCapHoldToTeamTab_(ss, t.code, holdName)
                          : "⚠ Team not mapped; add the cap hold to the team tab by hand";
+      if (t.code) appendCapHold_(ss, t.code, holdName, "Dropped (sync)");
       if (last) { last.entry[3] = `${master.msg}; ${tab}`; last.entry[4] = master.ok ? "Cap hold created" : "⚠ Review"; }
     } else if (!startedOnRoster && endsOnRoster) {
       const nba = players[pid] ? players[pid].team : "";
@@ -552,6 +556,7 @@ function applyRosterDiff_(ss, prev, curr, players, teamMap) {
     const holdName = (master.masterName || name) + " (cap hold)";
     const tab = t.code ? addCapHoldToTeamTab_(ss, t.code, holdName)
                        : "⚠ Team not mapped; add the cap hold to the team tab by hand";
+    if (t.code) appendCapHold_(ss, t.code, holdName, "Dropped (sync, roster comparison)");
     entries.push(["Drop", teamLabel_(teamMap, d.from), name, `${master.msg}; ${tab} ${note}`,
       master.ok ? "Cap hold created" : "⚠ Review"]);
   });
@@ -657,7 +662,21 @@ function addPendingToMaster_(ss, name, nbaTeam) {
     return { created: false, msg: `Already on Master list (row ${f.active[0]}); no new entry` };
   }
 
-  let code = String(nbaTeam || "").toUpperCase();
+  const ins = insertMasterRowForTeam_(sh, nbaTeam);
+  const newRow = ins.row, code = ins.code;
+  sh.getRange(newRow, 1, 1, 2).setValues([[name, code]]);
+  sh.getRange(newRow, 10).setValue("PENDING — needs contract");
+
+  const holdNote = f.holds.length ? " (his old cap hold row is still there)" : "";
+  const where = ins.inBlock ? `${code} block` : `end of list (no ${code} block found)`;
+  return { created: true, msg: `New Master list row ${newRow}, ${where}${holdNote}. Waiting on your contract input` };
+}
+
+// Inserts an empty row at the end of an NBA team's block (column B), with the
+// format of the row above and A:R cleared. Never touches column S.
+// Returns { row, code, inBlock }.
+function insertMasterRowForTeam_(sh, nbaTeam) {
+  let code = String(nbaTeam || "").trim().toUpperCase();
   code = NBA_ABBR_FIX[code] || code || "Z";
 
   const last = sh.getLastRow();
@@ -667,17 +686,12 @@ function addPendingToMaster_(ss, name, nbaTeam) {
 
   const anchor = teamEnd > 0 ? teamEnd : last;
   sh.insertRowAfter(anchor);
-  const newRow = anchor + 1;
+  const row = anchor + 1;
   sh.getRange(anchor, 1, 1, MASTER_LAST_COL)
-    .copyTo(sh.getRange(newRow, 1, 1, MASTER_LAST_COL), { formatOnly: true });
-  sh.getRange(newRow, 1, 1, MASTER_LAST_COL).clearContent();
-  sh.getRange(newRow, 3, 1, 7).setBackground(null); // salary cols: let conditional formatting colour them
-  sh.getRange(newRow, 1, 1, 2).setValues([[name, code]]);
-  sh.getRange(newRow, 10).setValue("PENDING — needs contract");
-
-  const holdNote = f.holds.length ? " (his old cap hold row is still there)" : "";
-  const where = teamEnd > 0 ? `${code} block` : `end of list (no ${code} block found)`;
-  return { created: true, msg: `New Master list row ${newRow}, ${where}${holdNote}. Waiting on your contract input` };
+    .copyTo(sh.getRange(row, 1, 1, MASTER_LAST_COL), { formatOnly: true });
+  sh.getRange(row, 1, 1, MASTER_LAST_COL).clearContent();
+  sh.getRange(row, 3, 1, 7).setBackground(null); // salary cols: let conditional formatting colour them
+  return { row, code, inBlock: teamEnd > 0 };
 }
 
 /* -------------------------- Team tab holds ---------------------- */

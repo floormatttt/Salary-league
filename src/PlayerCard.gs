@@ -1,10 +1,12 @@
 /******************************************************************
- * Player Cards
+ * Player Cards (server side)
  *
- * A web app (this project's doGet) that shows a full player card:
- *   Game log · Transactions · Contract · Stats / advanced / bio
- * plus the code that turns player names in the workbook into links
- * to that card.
+ * Data for the player popup on the league site (Site.gs owns doGet):
+ *   getCard(name)            header, bio, fantasy team, contract rows
+ *   getGameLog(espnId, yr)   ESPN game log + season summary, with fantasy points
+ *   getTxns(sleeperId)       every Sleeper transaction for the player
+ * plus the code that turns player names in the workbook into links to
+ * the site (/exec?n=Name opens that card).
  *
  * Data:
  *   - Contract ......... Master list (this workbook)
@@ -14,13 +16,10 @@
  *   - Bio .............. ESPN team rosters
  *   - Fantasy points ... computed from the Sleeper league's scoring settings
  *
- * Setup (once):
- *   1. Deploy > New deployment > Web app.
- *      Execute as: Me.  Who has access: Anyone (or "Anyone with a Google account").
- *   2. Copy the /exec URL, then in the sheet: Sync League > Set player card link…
- *   3. Sync League > Refresh player links now.
- *   After that the sync keeps links up to date (Rosters every sync,
- *   team tabs + Master list hourly, and any name you type right away).
+ * Links: Sync League > Set site link… (the /exec URL), then
+ * Sync League > Refresh player links now. After that the sync keeps them
+ * up to date (Rosters every sync, team tabs + Master list hourly, and any
+ * name you type right away).
  ******************************************************************/
 
 const SPREADSHEET_ID = "1I6FEq2JzPKhADk_THPyYe5SX0PkPH-MCniz9-AmDgV4";
@@ -31,73 +30,6 @@ const ESPN_WEB = "https://site.web.api.espn.com/apis/common/v3/sports/basketball
 const ESPN_FIX_SHEET = "ESPN ID Fixes"; // optional: Name | ESPN id, for names that don't match
 const LINK_EVERY_MIN = 60;        // full link pass on team tabs + Master list
 const TEAM_TAB_SLOTS = ["pg", "sg", "sf", "pf", "c", "g", "f", "util", "bench", "ir", "taxi", "cap hold"];
-
-/* ============================ Web app ============================ */
-
-function doGet(e) {
-  const t = HtmlService.createTemplateFromFile("CardPage");
-  const q = (e && e.parameter && e.parameter.n) || "";
-  t.startJson = JSON.stringify(String(q)).replace(/</g, "\\u003c");
-  t.modeJson = JSON.stringify("page");
-  return t.evaluate()
-    .setTitle("Player card")
-    .addMetaTag("viewport", "width=device-width, initial-scale=1");
-}
-
-/* ------------------------ Popup in the sheet -------------------- */
-
-// Opens a floating card window over the sheet (computer only; the Sheets
-// phone app can't show popups). While it's open, clicking a player name
-// on Rosters, Master list or a team tab loads that player.
-function showPlayerPopup() {
-  const t = HtmlService.createTemplateFromFile("CardPage");
-  t.startJson = JSON.stringify(getSelectedPlayer().name || "").replace(/</g, "\\u003c");
-  t.modeJson = JSON.stringify("popup");
-  const html = t.evaluate().setWidth(480).setHeight(680);
-  SpreadsheetApp.getUi().showModelessDialog(html, "Player card");
-}
-
-// Called by the "on open" trigger. Wrapped so a phone open (no popups) can't error.
-function autoOpenPopup() {
-  try { showPlayerPopup(); } catch (e) { console.log("Popup on open skipped: " + e); }
-}
-
-// Google's built-in onOpen isn't allowed to show popups, but an installable
-// on-open trigger is. These turn that trigger on/off.
-function turnOnPopupOnOpen() {
-  turnOffPopupOnOpen_(true);
-  ScriptApp.newTrigger("autoOpenPopup").forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onOpen().create();
-  SpreadsheetApp.getActiveSpreadsheet().toast("The player popup will open whenever you open this sheet.", "Player cards", 6);
-}
-
-function turnOffPopupOnOpen() { turnOffPopupOnOpen_(false); }
-
-function turnOffPopupOnOpen_(quiet) {
-  ScriptApp.getProjectTriggers().forEach(t => {
-    if (t.getHandlerFunction() === "autoOpenPopup") ScriptApp.deleteTrigger(t);
-  });
-  if (!quiet) SpreadsheetApp.getActiveSpreadsheet().toast("Popup on open turned off.", "Player cards", 5);
-}
-
-// The popup asks this about once a second: which player is selected?
-function getSelectedPlayer() {
-  const sh = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const cell = sh.getCurrentCell();
-  if (!cell) return { name: "" };
-  const tab = sh.getName(), r = cell.getRow(), c = cell.getColumn();
-  const key = `${tab}!${r}!${c}`;
-  if (r < 2) return { key, name: "" };
-  const text = String(cell.getDisplayValue() || "").trim();
-  if (!text) return { key, name: "" };
-  let ok = false;
-  if (tab === SHEETS.rosters) ok = true;
-  else if (tab === SHEETS.master) ok = c === 1 && !/pending/i.test(text);
-  else if (Object.values(TEAM_CODES).indexOf(tab) >= 0 && c === 2) {
-    const slot = String(sh.getRange(r, 1).getDisplayValue()).trim().toLowerCase();
-    ok = TEAM_TAB_SLOTS.indexOf(slot) >= 0;
-  }
-  return { key, name: ok ? cleanName_(text) : "" };
-}
 
 function openSs_() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -234,25 +166,6 @@ function getTxns(sleeperId) {
   return { ok: true, rows: out };
 }
 
-// Names for the search box: Master list + everyone on a league roster.
-function getPlayerIndex() {
-  return cached_("pindex", 10 * 60, () => {
-    const ss = openSs_();
-    const set = {};
-    const sh = ss.getSheetByName(SHEETS.master);
-    sh.getRange(2, 1, Math.max(1, sh.getLastRow() - 1), 1).getDisplayValues().forEach(r => {
-      const n = cleanName_(r[0]);
-      if (n && !/pending/i.test(n)) set[norm_(n)] = n;
-    });
-    const plyrs = playersTable_(ss);
-    Object.keys(liveRosters_().byPid).forEach(pid => {
-      const p = plyrs.byId[pid];
-      if (p && !set[norm_(p.name)]) set[norm_(p.name)] = p.name;
-    });
-    return Object.values(set).sort((a, b) => a.localeCompare(b));
-  });
-}
-
 /* ============================ Lookups ============================ */
 
 function cleanName_(s) {
@@ -286,13 +199,13 @@ function playersTable_(ss) {
 function liveRosters_() {
   return cached_("rosters", 5 * 60, () => {
     const byPid = {};
-    fetchJson_(`/league/${LEAGUE_ID}/rosters`).forEach(r => {
-      const st = new Set((r.starters || []).map(String));
-      const ir = new Set((r.reserve || []).map(String));
-      const tx = new Set((r.taxi || []).map(String));
+    sleeperRosters_().forEach(r => {
+      const st = new Set(r.starters);
+      const ir = new Set(r.reserve);
+      const tx = new Set(r.taxi);
       allPlayerIds_(r).forEach(pid => {
         byPid[pid] = {
-          rid: String(r.roster_id),
+          rid: r.rid,
           slot: st.has(pid) ? "Starter" : ir.has(pid) ? "IR" : tx.has(pid) ? "Taxi" : "Bench",
         };
       });
@@ -473,7 +386,7 @@ function parseGamelog_(j) {
 /* ------------------------- Fantasy scoring ----------------------- */
 
 function leagueScoring_() {
-  return cached_("scoring", 6 * 3600, () => (fetchJson_(`/league/${LEAGUE_ID}`).scoring_settings || {}));
+  return sleeperLeague_().scoring_settings || {};
 }
 
 // Sleeper scoring keys this can compute from an ESPN box score.
@@ -648,7 +561,7 @@ function cachePut_(key, obj, seconds) {
 
 function clearCardCache() {
   const c = CacheService.getScriptCache();
-  ["espnIdx", "plyrs", "rosters", "scoring", "chain", "pindex"].forEach(k => c.remove(k));
+  c.removeAll(["espnIdx", "chain", "sl_league", "sl_picks"].concat(SITE_CACHE_KEYS));
   leagueChainIds_().forEach(id => c.remove("txns_" + id));
   SpreadsheetApp.getActiveSpreadsheet().toast("Player card cache cleared.", "Player cards", 5);
 }
@@ -680,7 +593,7 @@ function getCardUrl_() {
 
 function setCardUrl() {
   const ui = SpreadsheetApp.getUi();
-  const res = ui.prompt("Player card link", "Paste the web app URL (ends in /exec):", ui.ButtonSet.OK_CANCEL);
+  const res = ui.prompt("Site link", "Paste the site's web app URL (ends in /exec):", ui.ButtonSet.OK_CANCEL);
   if (res.getSelectedButton() !== ui.Button.OK) return;
   const url = res.getResponseText().trim();
   if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(url)) {
@@ -778,7 +691,7 @@ function maybeLinkAllPlayers_(ss) {
 function refreshPlayerLinks() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!getCardUrl_()) {
-    SpreadsheetApp.getUi().alert("Set the player card link first (Sync League > Set player card link…).");
+    SpreadsheetApp.getUi().alert("Set the site link first (Sync League > Set site link…).");
     return;
   }
   linkAllPlayers_(ss);
