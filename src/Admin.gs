@@ -358,22 +358,25 @@ function adminSetRanks(token, ranks) {
 
 /* ======================= Payroll check / sync ==================== */
 
-// Each team tab's "Total Payroll:" row, by season. The page compares these
-// to its own payroll (LeagueMath.teamBook) and lists the differences.
+// Each team tab's "Total Payroll:" row by season, plus the names listed on
+// the tab. The page compares these to its own payroll (LeagueMath.teamBook)
+// and lists the differences and any rostered player the tab is missing.
 function adminPayrollCheck(token) {
   requireAdmin_(token);
   const ss = openSs_();
-  const out = {};
+  const totals = {}, names = {};
   Object.values(TEAM_CODES).forEach(code => {
     const sh = ss.getSheetByName(code);
-    if (!sh || sh.getLastRow() < 1) { out[code] = null; return; }
+    totals[code] = null; names[code] = [];
+    if (!sh || sh.getLastRow() < 1) return;
     const vals = sh.getRange(1, 1, sh.getLastRow(), Math.min(sh.getLastColumn(), 10)).getDisplayValues();
+    names[code] = vals.slice(1).map(v => String(v[1] || "").trim()).filter(Boolean);
     const r = vals.find(v => v.some(x => /^total payroll/i.test(String(x).trim())));
-    if (!r) { out[code] = null; return; }
+    if (!r) return;
     const i = r.findIndex(x => /^total payroll/i.test(String(x).trim()));
-    out[code] = r.slice(i + 1, i + 8).map(parseSal_);
+    totals[code] = r.slice(i + 1, i + 8).map(parseSal_);
   });
-  return out;
+  return { totals, names };
 }
 
 function adminRunSync(token) {

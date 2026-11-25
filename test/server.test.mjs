@@ -323,9 +323,10 @@ describe("admin", () => {
 
   test("payroll check returns every team tab's Total Payroll row", () => {
     const gas = adminGas();
-    const tabs = gas.ctx.adminPayrollCheck(gas.token);
-    assert.deepEqual(tabs.MEM, tabTotals("MEM"));
-    assert.equal(Object.keys(tabs).length, 30);
+    const res = gas.ctx.adminPayrollCheck(gas.token);
+    assert.deepEqual(res.totals.MEM, tabTotals("MEM"));
+    assert.equal(Object.keys(res.totals).length, 30);
+    assert.ok(res.names.MEM.includes("Braden Smith"));
   });
 
   test("the sync's drop path appends to Cap Holds and never writes column S", () => {

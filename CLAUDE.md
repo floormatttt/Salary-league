@@ -1,6 +1,6 @@
 # Salary League site
 
-Google Apps Script web app for a salary-cap fantasy NBA league on Sleeper. The full spec is
+Google Apps Script web app for a salary-cap fantasy NBA league on Sleeper. Deploy steps: [docs/DEPLOY.md](docs/DEPLOY.md). The full spec is
 [docs/MASTER_PROMPT.md](docs/MASTER_PROMPT.md). Read it before changing behavior.
 
 ## Layout

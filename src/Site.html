@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<?!= include_("SiteCss") ?>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#" data-go="">Salary League</a>
+    <nav class="nav" id="nav">
+      <a href="#" data-go="" data-page="standings">Standings</a>
+      <a href="#team" data-go="team" data-page="team">Teams</a>
+      <a href="#players" data-go="players" data-page="players">Players</a>
+      <a href="#trade" data-go="trade" data-page="trade">Trade machine</a>
+      <a href="#log" data-go="log" data-page="log">Transactions</a>
+      <a href="#rules" data-go="rules" data-page="rules">Rules</a>
+      <a href="#admin" data-go="admin" data-page="admin">Commissioner</a>
+    </nav>
+  </div>
+</header>
+
+<main id="view"><div class="loading">Loading the league</div></main>
+
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="sheet-bar"><b id="modalTitle">Player</b><button class="x" id="modalClose" aria-label="Close">×</button></div>
+    <div class="sheet-body" id="card"></div>
+  </div>
+</div>
+
+<script>var BOOT = <?!= bootJson ?>;</script>
+<?!= include_("LeagueMath") ?>
+<?!= include_("CardRender") ?>
+<?!= include_("SiteApp") ?>
+</body>
+</html>
