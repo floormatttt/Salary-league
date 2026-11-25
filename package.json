@@ -1,0 +1,16 @@
+{
+  "name": "salary-league-site",
+  "private": true,
+  "description": "Website for the salary-cap fantasy NBA league (Google Apps Script web app)",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "npm run build && node --test \"test/**/*.test.mjs\"",
+    "shots": "npm run build && node tools/screenshots.mjs",
+    "push": "npm run build && clasp push",
+    "pull": "clasp pull"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "puppeteer-core": "^23.11.1"
+  }
+}

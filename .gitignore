@@ -1,0 +1,5 @@
+node_modules/
+# clasp: .clasp.json holds the script id, .clasprc.json holds Google credentials
+.clasprc.json
+# screenshot output from npm run shots
+shots/
