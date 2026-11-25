@@ -4,6 +4,7 @@
   "description": "Website for the salary-cap fantasy NBA league (Google Apps Script web app)",
   "scripts": {
     "build": "node tools/build.mjs",
+    "fixtures": "node tools/export-workbook.mjs",
     "test": "npm run build && node --test \"test/**/*.test.mjs\"",
     "shots": "npm run build && node tools/screenshots.mjs",
     "push": "npm run build && clasp push",
@@ -11,6 +12,7 @@
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",
-    "puppeteer-core": "^23.11.1"
+    "puppeteer-core": "^23.11.1",
+    "xlsx": "^0.18.5"
   }
 }

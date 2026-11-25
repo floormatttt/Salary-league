@@ -3,3 +3,5 @@ node_modules/
 .clasprc.json
 # screenshot output from npm run shots
 shots/
+# raw Drive export; rebuild workbook.json with node tools/export-workbook.mjs
+fixtures/workbook.xlsx
