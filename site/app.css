@@ -854,3 +854,103 @@
   details.ledger summary { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; }
   details.ledger .tbl { margin: 0 12px 12px; }
   @media (max-width: 520px) { .cashlist { grid-template-columns: 1fr; } .cashrow2 { flex-wrap: wrap; } .cashrow2 .nm { flex-basis: 60%; } }
+
+  /* ================= player card: team-colored, tabbed ================= */
+  .sheet { position: absolute; }
+  .sheet-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 3; background: transparent; border: 0; padding: 12px 12px 0; justify-content: flex-end; pointer-events: none; }
+  .sheet-bar b { display: none; }
+  .sheet-bar .x { pointer-events: auto; background: rgba(0, 0, 0, .32); color: #fff; backdrop-filter: blur(4px); }
+  .sheet-bar .x:hover { background: rgba(0, 0, 0, .5); color: #fff; }
+  .sheet-body { padding: 0 18px 26px; }
+  .phero { position: relative; overflow: hidden; display: flex; align-items: flex-end; gap: 18px; margin: 0 -18px; padding: 26px 22px 0; min-height: 170px; color: #fff;
+    background: radial-gradient(110% 140% at 100% 0%, color-mix(in srgb, var(--c2) 55%, transparent), transparent 58%),
+                linear-gradient(135deg, var(--c1), color-mix(in srgb, var(--c1) 50%, #000)); }
+  .phero::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--c2); }
+  .phero-num { position: absolute; right: 12px; bottom: -34px; font-family: var(--serif); font-size: 170px; line-height: 1; color: rgba(255, 255, 255, .09); pointer-events: none; letter-spacing: -.04em; }
+  .phero-shot { position: relative; z-index: 1; width: 170px; height: 124px; flex: none; object-fit: cover; object-position: top; align-self: flex-end;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .35)); }
+  .phero-shot.none { display: grid; place-items: center; width: 110px; height: 110px; margin-bottom: 18px; border-radius: 50%; background: rgba(255, 255, 255, .15);
+    font-family: var(--serif); font-size: 40px; color: #fff; }
+  .phero-txt { position: relative; z-index: 1; padding-bottom: 18px; min-width: 0; }
+  .phero-top { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .78); }
+  .phero h1 { color: #fff; font-size: 38px; line-height: 1.05; margin: 4px 0 4px; }
+  .phero .meta { color: rgba(255, 255, 255, .82); font-size: 13.5px; }
+  .phero .chips { margin-top: 10px; }
+  .chip.glass { background: rgba(255, 255, 255, .16); color: #fff; }
+  .phero .chip.team.tc { box-shadow: inset -3px 0 0 var(--c2), 0 0 0 1px rgba(255, 255, 255, .25); }
+  .phero .chip.inj { background: #fee2e2; color: #991b1b; }
+  .chip.elig { background: #dcfce7; color: #14532d; }
+  @media (max-width: 640px) {
+    .phero { flex-direction: column; align-items: flex-start; gap: 0; padding: 54px 16px 0; margin: 0 -16px; }
+    .phero-shot { width: 130px; height: 95px; align-self: flex-start; }
+    .phero h1 { font-size: 30px; }
+    .phero-num { font-size: 120px; bottom: -20px; }
+    .sheet-body { padding: 0 16px 24px; }
+  }
+
+  /* quick numbers */
+  .pquick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 14px 0 12px; }
+  @media (max-width: 640px) { .pquick { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .ptiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 8px; }
+  .ptile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; min-width: 0; border-top: 3px solid var(--line); }
+  .ptile b { display: block; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ptile span { font-size: 11.5px; color: var(--muted); font-weight: 650; }
+  .ptile.hot { border-top-color: var(--c1, var(--accent)); background: color-mix(in srgb, var(--c1, var(--accent)) 7%, var(--card)); }
+  .ptile.hot b { color: var(--c1, var(--accent)); }
+  @media (prefers-color-scheme: dark) { .ptile.hot b { color: var(--text); } }
+  .ptile.money { border-top-color: var(--c2, var(--accent)); }
+  .ptile.money b { font-size: 15px; }
+  .ptile.good { border-top-color: var(--good); } .ptile.good b { color: var(--good); }
+  .ptile.bad { border-top-color: var(--bad); } .ptile.bad b { color: var(--bad); }
+
+  /* tabs in his team's color */
+  .ptabs { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; margin: 0 -18px 14px; padding: 8px 18px 0; background: var(--bg); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+  .ptabs::-webkit-scrollbar { display: none; }
+  .ptabs button { position: relative; padding: 9px 12px 11px; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .ptabs button:hover { color: var(--text); }
+  .ptabs button.on { color: var(--text); }
+  .ptabs button.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: linear-gradient(90deg, var(--c1, var(--accent)) 65%, var(--c2, var(--accent)) 65%); }
+  @media (max-width: 640px) { .ptabs { margin: 0 -16px 14px; padding: 8px 16px 0; } }
+
+  /* sections */
+  .pbox > h3 { display: flex; align-items: center; gap: 8px; }
+  .pbox > h3::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--c1, var(--accent)); }
+  .pbox.s-adv > h3::before { background: var(--m-po); } .pbox.s-36 > h3::before { background: var(--m-smax); } .pbox.s-po > h3::before { background: var(--m-max); }
+  .pcon .ptiles { margin-bottom: 14px; }
+  .cyears { display: flex; flex-direction: column; gap: 7px; }
+  .cy { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+  .cy-s { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+  .cy-bar { height: 10px; border-radius: 6px; background: var(--chip); overflow: hidden; }
+  .cy-bar i { display: block; height: 100%; border-radius: 6px; background: var(--mk, var(--text)); }
+  .cy-bar i.m-g { background: color-mix(in srgb, var(--text) 55%, transparent); }
+  .cy-v { min-width: 84px; text-align: right; }
+  .pdet { margin-top: 12px; padding: 9px 12px; border-radius: 10px; background: var(--card-2); font-size: 13.5px; }
+  .pdet span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .fact { padding: 9px 11px; border-radius: 11px; background: var(--card-2); border: 1px solid var(--line-2); min-width: 0; }
+  .fact span { display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .fact b { display: block; font-size: 14px; margin-top: 2px; }
+  .fact.bad { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); } .fact.bad b { color: var(--bad); }
+
+  /* game log */
+  [data-panel="log"] .row b { font-size: 15px; }
+  [data-panel="log"] .ptiles { margin-bottom: 12px; }
+  .wl { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #fff; background: var(--faint); }
+  .wl.W { background: var(--good); } .wl.L { background: var(--bad); }
+  table.glog td.fp { font-weight: 800; color: var(--text); }
+  table.glog td.fp.hi { background: color-mix(in srgb, var(--good) 16%, var(--card)); color: var(--good); }
+  table.glog td.fp.lo { background: color-mix(in srgb, var(--bad) 12%, var(--card)); color: var(--bad); }
+
+  /* transactions on the card */
+  .txn .d { display: flex; flex-direction: column; width: 96px; }
+  .txn .d b { font-size: 13px; color: var(--text); } .txn .d span { font-size: 12px; color: var(--muted); }
+  .ppart { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ptile.money b { font-size: 18px; }
+  .ptile.money .mny { font-size: 17px; font-weight: 800; padding: 1px 8px 1px 7px; }
+  .ptile.money .mny.m-g { padding: 0; }
+
+  /* dark mode colors again (the warmer light palette above overrode them) */
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0d10; --card: #131519; --card-2: #17191e; --line: #25282f; --line-2: #1d2026; --chip: #1f2228; --row-hover: #181a20; }
+  }
+  p.pnote { color: var(--muted); margin: 10px 0 0; }
