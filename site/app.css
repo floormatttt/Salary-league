@@ -606,3 +606,11 @@
   .info { width: 28px; height: 28px; margin-right: 8px; border: 0; border-left: 0; border-radius: 50%; display: grid; place-items: center; flex: none;
     background: transparent; color: var(--faint); font: 600 16px/1 var(--sans); font-style: normal; }
   .info:hover { color: var(--accent); background: var(--chip); }
+
+  /* heavier text throughout */
+  html, body, td, .muted, .small, .sub, .kpi .k, .stat span, input, select, textarea { font-weight: 600; }
+  .plink, .asset-main .nm, a.team, .tm a.team, .stat b, .list-row .num, b, strong, .tier, .mny, .mny.m-g, .btn, .dl, .chip, .badge, .tname, .tcode, .seg button { font-weight: 700; }
+  .nav a { font-weight: 700; } .nav a.on, .seg button.on { font-weight: 800; }
+  th, .eyebrow, .box > h3, h3.sec, h2.sec, .panel-head h3, tr.grp td { font-weight: 800; }
+  h1, .hero h1, .brand, .kpi .v, .team-hero .big, .verdict, .tcard-top b, .tbox-head b, .hdr h1 { -webkit-text-stroke: .35px currentColor; }
+  html, body { letter-spacing: .005em; }
