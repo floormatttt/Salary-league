@@ -504,7 +504,7 @@ function assetCard(type, key, from, pic, main, side) {
     '<button class="asset-main" data-act="tradeAsset"' + attrs + ' aria-pressed="' + !!m + '">' + (pic ? '<span class="pic">' + pic + (m ? '<b class="chk">✓</b>' : "") + "</span>" : '<span class="tick">' + (m ? "✓" : "+") + "</span>") +
     '<span class="nm">' + main + "</span>" + (side ? '<span class="sal">' + side + "</span>" : "") +
     (m && others.length < 2 ? '<span class="to">→ ' + esc(m.to) + "</span>" : "") + "</button>" +
-    (type === "player" ? '<button class="info plink" data-player="' + esc(key) + '" title="Player card" aria-label="Player card">i</button>' : "") + "</div>" + dest;
+    (type === "player" ? '<button class="info plink" data-player="' + esc(key) + '" title="Player card" aria-label="Player card"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 7.2v3.9M8 4.9v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>' : "") + "</div>" + dest;
 }
 function tradeTeamBox(code) {
   var b = book(code), L = S.L;

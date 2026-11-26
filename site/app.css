@@ -581,3 +581,28 @@
   td { font-weight: 500; }
   .muted, .small, .sub, .kpi .k, .stat span { font-weight: 500; }
   @media (max-width: 640px) { h1 { font-size: 30px; } .hero h1 { font-size: 34px; } .kpi .v { font-size: 26px; } }
+
+  /* ===== Plus Jakarta Sans text, darker paper, distinct apron colors, round info button ===== */
+  :root {
+    --sans: "Plus Jakarta Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg: #e9e7e1; --card: #ffffff; --card-2: #f7f6f2; --line: #dedad1; --line-2: #ebe8e2; --chip: #efede7; --row-hover: #f8f7f3;
+    /* levels: green -> blue -> amber -> red (-> purple) */
+    --t-cap: #15803d; --t-first: #0369a1; --t-second: #c27803; --t-tax: #dc2626; --t-over: #7e22ce;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --t-cap: #4ade80; --t-first: #38bdf8; --t-second: #fbbf24; --t-tax: #f87171; --t-over: #c084fc; }
+  }
+  html, body { font-family: var(--sans); font-weight: 500; letter-spacing: -.005em; font-feature-settings: normal; }
+  td { font-weight: 500; }
+  .plink, .asset-main .nm, a.team, .tm a.team, .stat b, .list-row .num { font-weight: 700; }
+  .nav a { font-weight: 600; } .nav a.on { font-weight: 700; }
+  .tier { font-weight: 700; }
+  .mny { font-weight: 600; } .mny.m-g { font-weight: 600; }
+  .muted, .small, .sub, .kpi .k, .stat span { font-weight: 500; }
+  th, .eyebrow, .box > h3, h3.sec, h2.sec, .panel-head h3, tr.grp td { font-weight: 800; }
+
+  /* trade machine: small round info icon inside the card */
+  .tm-teams .asset { align-items: center; }
+  .info { width: 28px; height: 28px; margin-right: 8px; border: 0; border-left: 0; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: transparent; color: var(--faint); font: 600 16px/1 var(--sans); font-style: normal; }
+  .info:hover { color: var(--accent); background: var(--chip); }
