@@ -9,8 +9,9 @@ var Export = (function () {
   var FONT = "Calibri";
   var INK = "0F1729", MUTED = "6B7280", LINE = "E5E8EE", HEAD = "0D1424";
   // kind of money (LeagueMath.moneyKind) -> [fill, text]
-  var KIND = { g: ["EDF7F0", "14532D"], po: ["E8EFFD", "1E3A8A"], to: ["F1EBFD", "4C1D95"], max: ["FDF3E1", "7C2D12"],
-               smax: ["FCE8F2", "831843"], hold: ["F1F3F6", "5D6778"] };
+  // guaranteed (g) isn't colored
+  var KIND = { po: ["DCFCE7", "14532D"], to: ["FEE2E2", "991B1B"], max: ["FCE7F3", "9D174D"], smax: ["EDE9FE", "5B21B6"],
+               hold: ["F1F3F6", "5D6778"], ufa: ["1E3A8A", "FFFFFF"], rfa: ["BAE6FD", "075985"] };
   var TIER = { cap: ["E6F4EA", "166534"], first: ["FBF3DB", "854D0E"], second: ["FDEBDD", "9A3412"], tax: ["FBE4E4", "991B1B"], over: ["F7E3F7", "86198F"] };
 
   function loadLib() {
@@ -37,6 +38,7 @@ var Export = (function () {
   function moneyCell(ws, X, r, c, kind) {
     var k = KIND[kind];
     if (kind === "fa") style(ws, X, r, c, { font: { color: { rgb: "8B93A3" }, bold: true, sz: 9 }, alignment: { horizontal: "center", vertical: "center" } });
+    else if (kind === "ufa" || kind === "rfa") style(ws, X, r, c, { fill: fill(k[0]), font: { color: { rgb: k[1] }, bold: true, sz: 9 }, alignment: { horizontal: "center", vertical: "center" } });
     else if (k) style(ws, X, r, c, { fill: fill(k[0]), font: { color: { rgb: k[1] }, italic: kind === "hold", bold: kind === "max" || kind === "smax" } });
   }
   function tierCell(ws, X, r, c, key, bold) {

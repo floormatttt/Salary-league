@@ -100,12 +100,13 @@ function salCell(c, i) {
   var k = LM.moneyKind(c, i);
   if (!k) return "";
   var v = c.sal[i], s = String(c.st[i] || "");
-  if (k === "fa") return '<span class="fa">' + esc(v) + "</span>";
+  if (k === "fa" || k === "ufa" || k === "rfa") return '<span class="fa m-' + k + '">' + esc(v) + "</span>";
   return '<span class="mny m-' + k + '">' + money(v) + (s && s !== "HOLD" ? "<em>" + esc(s) + "</em>" : "") + "</span>";
 }
 function moneyLegend() {
   return '<div class="legend mlegend">' + LM.MONEY_KINDS.map(function (m) {
-    return m[0] === "fa" ? '<span><span class="fa">UFA</span>' + m[1] + "</span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") + "</div>";
+    return m[0] === "ufa" || m[0] === "rfa" ? '<span><span class="fa m-' + m[0] + '">' + m[1] + "</span></span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") +
+    '<span class="muted">Plain amounts are guaranteed</span></div>';
 }
 // ESPN headshot (small, from ESPN's image resizer) for a player name, or initials
 function headshot(name) {
@@ -630,10 +631,26 @@ function logBody(r) {
   var items = parts.map(logAsset).filter(Boolean);
   return items.length ? '<div class="side-b">' + items.join("") + "</div>" : "";
 }
+// "Today" / "Yesterday" / "Mon, Nov 24" (+ year when not this year), and the time
+function dayLabel(d) {
+  var now = new Date(), day = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+  var diff = Math.round((day(now) - day(d)) / 864e5);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" });
+}
+function timeLabel(d) { return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
+function logWhen(r, compact) {
+  var d = new Date(r.ts);
+  if (isNaN(d)) return compact ? "" : '<div class="d"></div>';
+  var full = esc(d.toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" }));
+  if (compact) return '<time class="when" datetime="' + esc(r.ts) + '" title="' + full + '">' + esc(dayLabel(d)) + " · " + esc(timeLabel(d)) + "</time>";
+  return '<time class="d" datetime="' + esc(r.ts) + '" title="' + full + '"><b>' + esc(dayLabel(d)) + "</b><span>" + esc(timeLabel(d)) + "</span></time>";
+}
 function logEntry(r, compact) {
-  return '<div class="ent' + (compact ? " compact" : "") + '">' + (compact ? "" : '<div class="d">' + esc(r.when) + "</div>") + '<div class="body">' +
+  return '<div class="ent' + (compact ? " compact" : "") + '">' + (compact ? "" : logWhen(r)) + '<div class="body">' +
     '<div class="ent-h"><span class="badge ' + logKind(r.type) + '">' + esc(r.type) + "</span>" + teamsLine(r.teams) +
-    (compact ? '<span class="muted small">' + esc(r.when) + "</span>" : r.status ? '<span class="chip">' + esc(r.status) + "</span>" : "") + "</div>" +
+    (compact ? logWhen(r, true) : r.status ? '<span class="chip">' + esc(r.status) + "</span>" : "") + "</div>" +
     logBody(r) + (r.details && !compact ? '<div class="muted small" style="margin-top:6px">' + esc(r.details) + "</div>" : "") + "</div></div>";
 }
 function logList() {

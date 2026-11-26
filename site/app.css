@@ -378,19 +378,23 @@
   .badge-team.sm { width: 40px; height: 40px; border-radius: 11px; font-size: 12px; background: #fff; color: var(--c1); box-shadow: inset 0 -3px 0 var(--c2); }
 
   /* ================= kinds of money (LeagueMath.moneyKind) ================= */
-  :root { --m-g: #15803d; --m-po: #2563eb; --m-to: #7c3aed; --m-max: #b45309; --m-smax: #be185d; --m-hold: #64748b; }
-  @media (prefers-color-scheme: dark) { :root { --m-g: #4ade80; --m-po: #7aa2ff; --m-to: #b794f6; --m-max: #fbbf24; --m-smax: #f472b6; --m-hold: #94a3b8; } }
-  .m-g { --mk: var(--m-g); } .m-po { --mk: var(--m-po); } .m-to { --mk: var(--m-to); }
+  :root { --m-po: #15803d; --m-to: #dc2626; --m-max: #db2777; --m-smax: #7c3aed; --m-hold: #64748b;
+    --m-ufa: #1e3a8a; --m-ufa-text: #ffffff; --m-rfa: #bae6fd; --m-rfa-text: #075985; }
+  @media (prefers-color-scheme: dark) { :root { --m-po: #4ade80; --m-to: #f87171; --m-max: #f472b6; --m-smax: #b794f6; --m-hold: #94a3b8;
+    --m-ufa: #2f4fb8; --m-ufa-text: #ffffff; --m-rfa: #7dd3fc; --m-rfa-text: #082f49; } }
+  .m-po { --mk: var(--m-po); } .m-to { --mk: var(--m-to); }
   .m-max { --mk: var(--m-max); } .m-smax { --mk: var(--m-smax); } .m-hold { --mk: var(--m-hold); }
   .mny { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 7px; border-radius: 6px; font-weight: 600; color: var(--text);
     background: color-mix(in srgb, var(--mk) 12%, transparent); box-shadow: inset 2px 0 0 var(--mk); font-variant-numeric: tabular-nums; }
-  .mny.m-g { background: color-mix(in srgb, var(--mk) 7%, transparent); }
+  .mny.m-g { background: none; box-shadow: none; padding-right: 0; font-weight: 500; }
+  .fa.m-ufa { background: var(--m-ufa); border-color: var(--m-ufa); color: var(--m-ufa-text); }
+  .fa.m-rfa { background: var(--m-rfa); border-color: var(--m-rfa); color: var(--m-rfa-text); }
   .mny.m-hold { font-style: italic; color: var(--muted); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mk) 12%, transparent) 0 4px, transparent 4px 8px); }
   .mny em { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; color: var(--mk); }
   .mlegend { margin: 0 0 4px; }
   .mlegend i { width: 14px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--mk) 22%, transparent); box-shadow: inset 2px 0 0 var(--mk); }
   .mlegend i.m-hold { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mk) 30%, transparent) 0 3px, transparent 3px 6px); }
-  .mlegend .fa { margin-right: 2px; }
+  .mlegend .fa { font-size: 11px; }
   td .st { display: none; }
 
   /* ================= download button in the top bar ================= */
@@ -479,3 +483,10 @@
   .ent.compact { grid-template-columns: 1fr; padding: 12px 0; }
   .ent.compact .deal { grid-template-columns: 1fr 1fr; }
   @media (max-width: 520px) { .ent.compact .deal, .deal { grid-template-columns: 1fr; } }
+
+  /* transaction dates */
+  .ent .d { display: flex; flex-direction: column; gap: 1px; padding-top: 1px; }
+  .ent .d b { font-size: 13.5px; font-weight: 700; color: var(--text); }
+  .ent .d span { font-size: 12.5px; color: var(--muted); }
+  .when { font-size: 12.5px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  @media (max-width: 520px) { .ent .d { flex-direction: row; gap: 8px; align-items: baseline; } }
