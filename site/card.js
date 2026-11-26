@@ -226,8 +226,28 @@ var Card = (function () {
       q("con").innerHTML = contract(c);
       q("stats").innerHTML = stats(c, null);
       loadLog();
-      api("getTxns", c.sleeperId).then(function (t) { if (st === mine) q("txn").innerHTML = txns(t); }, fail("txn"));
+      loadTxns(c, mine);
     }, fail("header"));
+  }
+
+  // His moves, drawn exactly like the Transactions page (falls back to the old list without the site's log)
+  function loadTxns(c, mine) {
+    if (typeof logEntry !== "function" || typeof LOCAL === "undefined") {
+      api("getTxns", c.sleeperId).then(function (t) { if (st === mine) q("txn").innerHTML = txns(t); }, fail("txn"));
+      return;
+    }
+    var key = LeagueMath.norm(c.name);
+    var got = typeof S !== "undefined" && S.log ? Promise.resolve(S.log) : LOCAL.getLog().then(function (d) { if (typeof S !== "undefined") S.log = d; return d; });
+    got.then(function (d) {
+      if (st !== mine) return;
+      var rows = d.rows.filter(function (r) {
+        return String(r.players || "").split(/\s+\|\s+/).some(function (part) {
+          return part.replace(/^.*? (gets|adds|drops):\s*/, "").split(/,\s*(?![^()]*\))/).some(function (it) { return LeagueMath.norm(it) === key; });
+        });
+      });
+      q("txn").innerHTML = rows.length ? '<div class="box plog">' + rows.map(function (r) { return logEntry(r); }).join("") + "</div>"
+        : sbox("", "", '<div class="muted">No league transactions for this player.</div>');
+    }, fail("txn"));
   }
 
   function loadLog() {

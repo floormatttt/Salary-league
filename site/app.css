@@ -954,3 +954,6 @@
     :root { --bg: #0c0d10; --card: #131519; --card-2: #17191e; --line: #25282f; --line-2: #1d2026; --chip: #1f2228; --row-hover: #181a20; }
   }
   p.pnote { color: var(--muted); margin: 10px 0 0; }
+  .plog .ent { grid-template-columns: 96px 1fr; }
+  .plog .deal { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  @media (max-width: 520px) { .plog .ent { grid-template-columns: 1fr; } }
