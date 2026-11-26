@@ -103,18 +103,21 @@ var Export = (function () {
     // Standings: team colors on the code, level colors on payroll
     // league standings order (record, then points for); the commissioners' ranking is its own column
     var order = LM.standings(L.teams);
-    var st = [["#", "Team", "Code", "Owner", "W", "L", "T", "PF"].concat(L.seasons.map(function (s) { return "Payroll " + s; }), ["Level", "Cash balance", "Max", "Supermax", "Power rank"])];
+    var st = [["#", "Team", "Code", "Owner", "W", "L", "T", "PF"].concat(L.seasons.map(function (s) { return "Payroll " + s; }), ["Level", "Cash balance", "Max", "Supermax", "Power rank", "#1 pick odds"])];
     var books = order.map(function (t) { return LM.teamBook(L, t.code); });
     order.forEach(function (t, i) {
       var b = books[i];
-      st.push([i + 1, t.name, t.code, t.owner, t.w, t.l, t.t, t.pf].concat(b.payroll, [b.tier.label, b.cash, b.maxes, b.smaxes, t.rank == null ? "" : t.rank]));
+      st.push([i + 1, t.name, t.code, t.owner, t.w, t.l, t.t, t.pf].concat(b.payroll, [b.tier.label, b.cash, b.maxes, b.smaxes, t.rank == null ? "" : t.rank, LM.lotteryOdds(i, order.length) == null ? "" : LM.lotteryOdds(i, order.length) / 100]));
     });
-    var sw = sheet(X, st, range(8, n).concat([n + 9]), [5, 18, 7, 18, 4, 4, 4, 8].concat(range(0, n).map(function () { return 11; }), [12, 11, 6, 9, 10]));
+    var sw = sheet(X, st, range(8, n).concat([n + 9]), [5, 18, 7, 18, 4, 4, 4, 8].concat(range(0, n).map(function () { return 11; }), [12, 11, 6, 9, 10, 12]));
     order.forEach(function (t, i) {
       teamCell(sw, X, i + 1, 2, t.code);
       style(sw, X, i + 1, 0, { alignment: { horizontal: "center" }, font: { bold: true, color: { rgb: MUTED } } });
       books[i].payroll.forEach(function (p, j) { tierCell(sw, X, i + 1, 8 + j, LM.tierOf(p).key, j === 0); });
       tierCell(sw, X, i + 1, 8 + n, books[i].tier.key, true);
+      var oc = sw[X.utils.encode_cell({ r: i + 1, c: n + 13 })];
+      if (oc && oc.t === "n") { oc.z = "0.0%"; style(sw, X, i + 1, n + 13, { numFmt: "0.0%", font: { bold: true, color: { rgb: "C2410C" } } }); }
+      if (i === LM.PLAYOFF_TEAMS) for (var c = 0; c <= n + 13; c++) style(sw, X, i + 1, c, { border: { top: { style: "medium", color: { rgb: "E8590C" } }, bottom: hair } });
     });
     X.utils.book_append_sheet(wb, sw, "Standings");
 

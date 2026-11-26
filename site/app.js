@@ -174,6 +174,19 @@ function closeMenus(except) {
     d.classList.remove("open"); d.querySelector(".dd-menu").hidden = true; d.querySelector(".dd-btn").setAttribute("aria-expanded", "false");
   });
 }
+// Projected draft slot right now: reverse standings (worst record picks first), same order every round
+function projSlot(pk) {
+  if (!S.projIdx) {
+    S.projIdx = {};
+    LM.standings(S.L.teams).reverse().forEach(function (t, i) { S.projIdx[t.code] = i + 1; });
+  }
+  var n = S.projIdx[pk.from];
+  return n ? { slot: n, overall: (pk.round - 1) * S.L.teams.length + n, label: pk.round + "." + (n < 10 ? "0" : "") + n } : null;
+}
+function projTag(pk) {
+  var p = projSlot(pk);
+  return p ? '<span class="proj' + (pk.round === 1 && p.slot <= 5 ? " hot" : "") + '" title="Projected pick ' + p.overall + ' overall (reverse standings right now)">' + p.label + "</span>" : "";
+}
 function salCell(c, i) {
   var k = LM.moneyKind(c, i);
   if (!k) return "";
@@ -202,7 +215,7 @@ function avatar(name) {
 // player link with a photo in front
 function pwho(name, label) { return '<span class="who">' + avatar(name) + pbtn(name, label) + "</span>"; }
 function book(code) { return S.books[code] || (S.books[code] = LM.teamBook(S.L, code)); }
-function setLeague(L) { S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
+function setLeague(L) { S.projIdx = null; S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
 // norm(name) -> { code, slot } for everyone on a fantasy roster
 function rosterIdx() {
   if (S.rIdx) return S.rIdx;
@@ -369,18 +382,21 @@ function closePlayer() {
 /* ============================ standings ============================ */
 function pageStandings() {
   var L = S.L;
-  var rows = LM.standings(L.teams).map(function (t, i) {
-    var b = book(t.code), p = b.payroll[0];
-    return '<tr><td><div class="tm"><span class="rk' + (i < 3 ? " top" : "") + '">' + (i + 1) + "</span>" + swatch(t.code) + "<div>" + teamLink(t.code) +
+  var order = LM.standings(L.teams);
+  var rows = order.map(function (t, i) {
+    var b = book(t.code), p = b.payroll[0], odds = LM.lotteryOdds(i, order.length);
+    var line = i === LM.PLAYOFF_TEAMS ? '<tr class="lotto-line"><td colspan="10"><span>Lottery line</span></td></tr>' : "";
+    return line + '<tr' + (odds != null ? ' class="lotto"' : "") + '><td><div class="tm"><span class="rk' + (i < 3 ? " top" : "") + '">' + (i + 1) + "</span>" + swatch(t.code) + "<div>" + teamLink(t.code) +
       '<div class="muted small">' + esc(t.owner) + "</div></div></div></td>" +
-      "<td><b>" + record(t) + "</b></td><td>" + f1(t.pf) + '</td><td class="l"><div class="paycell"><b>' + money(p) + "</b>" + meter(p) + "</div></td><td class=l>" + tierChip(p) +
+      "<td><b>" + record(t) + "</b></td><td>" + f1(t.pf) + "</td>" +
+      (odds != null ? '<td class="odds"><span style="--w:' + (odds / 25 * 100).toFixed(0) + '%">' + odds.toFixed(1) + "%</span></td>" : '<td class="dim">—</td>') + '<td class="l"><div class="paycell"><b>' + money(p) + "</b>" + meter(p) + "</div></td><td class=l>" + tierChip(p) +
       '</td><td class="' + (b.cash ? cls(b.cash) : "dim") + '">' + (b.cash ? signed(b.cash) : "—") +
       '</td><td class="' + (t.rank == null ? "dim" : "") + '">' + (t.rank == null ? "—" : "#" + t.rank) +
       '</td><td class="' + (b.maxes ? "" : "dim") + '">' + b.maxes + "/" + L.limits.maxes + '</td><td class="' + (b.smaxes ? "" : "dim") + '">' + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">By record, then points for · records live from Sleeper · payroll includes cap holds and cash</div></div>' +
     "</div>" +
-    '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th title="Commissioners power ranking">Power</th><th>Max</th><th>Supermax</th></tr>' +
+    '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th title="Chance at the #1 pick (old NBA lottery odds)">#1 pick odds</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th title="Commissioners power ranking">Power</th><th>Max</th><th>Supermax</th></tr>' +
     rows + "</table></div>" + tierLegend();
 }
 
@@ -459,8 +475,8 @@ function pageTeam(code) {
   picks.forEach(function (pk) { (bySeason[pk.season] = bySeason[pk.season] || []).push(pk); });
   var picksHtml = Object.keys(bySeason).length ? Object.keys(bySeason).sort().map(function (s) {
     return '<div class="row start"><b style="width:44px">' + esc(s) + '</b><div class="picks">' + bySeason[s].map(function (pk) {
-      return '<span class="chip' + (/\(own\)/.test(pk.label) ? " own" : "") + '">' + esc(pk.label.replace(/^\d{4} /, "")) + "</span>"; }).join("") + "</div></div>";
-  }).join("") : '<div class="empty">No draft picks in the next drafts.</div>';
+      return '<span class="chip pk' + (/\(own\)/.test(pk.label) ? " own" : "") + '">' + esc(pk.label.replace(/^\d{4} /, "")) + projTag(pk) + "</span>"; }).join("") + "</div></div>";
+  }).join("") + '<p class="muted small" style="margin:8px 0 0">Projected slots use the current standings in reverse (worst record picks first).</p>' : '<div class="empty">No draft picks in the next drafts.</div>';
 
   return head + statsHtml + warn + moneyLegend() + '<div style="height:10px"></div>' + table + '<h2 class="sec">Draft picks</h2>' + box("", picksHtml);
 }
@@ -592,7 +608,7 @@ function tradeTeamBox(code) {
     return assetCard("player", x.name, code, avatar(x.name), esc(x.name) + "<small>" + esc(x.c ? x.c.nba : "") + " · " + esc(SLOT[x.slot] || "") + "</small>",
       x.c ? salCell(x.c, 0) : '<span class="flag bad">No contract</span>');
   }).join("");
-  var pk = (L.picks[code] || []).map(function (p) { return assetCard("pick", p.label, code, "", esc(p.label)); }).join("");
+  var pk = (L.picks[code] || []).map(function (p) { return assetCard("pick", p.label, code, "", esc(p.label), projTag(p)); }).join("");
   var cash = S.trade.moves.filter(function (m) { return m.type === "cash" && m.from === code; }).map(function (m) {
     return '<div class="asset moving"' + teamStyle(m.to) + '><div class="asset-main"><span class="tick">$</span><span class="nm">' + money(m.amt) + "M cash</span>" +
       '<span class="to">→ ' + esc(m.to) + '</span></div><button class="info" data-act="rmCash" data-from="' + esc(code) + '" data-to="' + esc(m.to) + '" data-amt="' + m.amt + '" title="Remove" aria-label="Remove cash">×</button></div>';
@@ -831,7 +847,7 @@ function pageAdmin() {
     return '<button data-act="adminTab" data-v="' + t[0] + '" class="' + (A.tab === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
   var body = ({ pending: adminPending, contracts: adminContracts, holds: adminHolds, waive: adminWaive, cash: adminCash,
                 ranks: adminRanks, sync: adminSync })[A.tab]();
-  return '<div class="pagehead"><div><h1>Commissioner</h1><div class="sub">Signed in as ' + esc(Admin.who()) + ' · every change is a commit to the repo and goes in the Admin Log</div></div>' +
+  return '<div class="pagehead keep"><div><h1>Commissioner</h1><div class="sub">Signed in as ' + esc(Admin.who()) + "</div></div>" +
     '<button class="btn" data-act="logout">Sign out</button></div>' + tabs + (A.edit ? contractEditor(A.edit) : "") + body + activeNames();
 }
 
