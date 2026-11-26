@@ -41,9 +41,16 @@ function when(ts) {
 
 var gameLogs = {};
 var LOCAL = {
+  // Every Sleeper transaction (data/txns.json, this league and the ones before it), with the
+  // League Log's notes (cap hold created, needs contract…) on the moves they describe.
   getLog: function () {
-    return dataFile("log").then(function (rows) {
-      return { rows: rows.map(function (r) { return Object.assign({ when: when(r.ts) }, r); }), lastSync: S.L.lastSync ? when(S.L.lastSync) : "" };
+    return Promise.all([dataFile("log"), dataFile("txns").catch(function () { return []; })]).then(function (r) {
+      var log = r[0], tx = r[1] || [];
+      var byTs = {};
+      log.forEach(function (x) { byTs[new Date(x.ts).getTime()] = x; });
+      var rows = tx.length ? tx.map(function (t) { return fromSleeper(t, byTs[t.ts]); }) : log.slice();
+      rows.sort(function (a, b) { return new Date(b.ts) - new Date(a.ts); });
+      return { rows: rows.map(function (x) { return Object.assign({ when: when(x.ts) }, x); }), lastSync: S.L.lastSync ? when(S.L.lastSync) : "" };
     });
   },
   getRules: function () { return dataFile("rules"); },
@@ -66,6 +73,43 @@ var LOCAL = {
     });
   },
 };
+// One Sleeper transaction -> a log row { ts, season, type, teams, players, details, status }.
+// players: "Team gets: A, B, 2029 1st (X's)  |  Team gets: …" for trades, "Team adds: … | Team drops: …" otherwise.
+function fromSleeper(t, note) {
+  var byRid = {}; DATA.teams.forEach(function (x) { byRid[String(x.rid)] = x.name; });
+  var team = function (rid) { return byRid[String(rid)] || "Roster " + rid; };
+  var nm = function (pid) { var p = DATA.players[pid]; return p ? p[0] : "Player " + pid; };
+  var a = t.a || {}, d = t.d || {}, row = { ts: new Date(t.ts).toISOString(), season: t.s, details: "", status: "" };
+  if (t.ty === "trade") {
+    var rids = (t.r || []).map(String);
+    row.type = "Trade";
+    row.teams = rids.map(team).join(" ↔ ");
+    row.players = rids.map(function (rid) {
+      var items = Object.keys(a).filter(function (p) { return String(a[p]) === rid; }).map(nm);
+      (t.p || []).forEach(function (pk) {
+        if (String(pk[3]) === rid && String(pk[4]) !== rid) items.push(pk[0] + " " + Mutations.ordinal(pk[1]) + " (" + team(pk[2]) + "'s)");
+      });
+      return team(rid) + " gets: " + (items.join(", ") || "nothing");
+    }).join("  |  ");
+  } else {
+    var rosters = [];
+    Object.keys(a).concat(Object.keys(d)).forEach(function (p) { var rid = String(a[p] != null ? a[p] : d[p]); if (rosters.indexOf(rid) < 0) rosters.push(rid); });
+    Object.keys(d).forEach(function (p) { if (rosters.indexOf(String(d[p])) < 0) rosters.push(String(d[p])); });
+    var adds = Object.keys(a).length, drops = Object.keys(d).length;
+    row.type = (t.ty === "commissioner" ? "Commish " : "") + (adds && drops ? "Add/Drop" : adds ? "Add" : "Drop");
+    row.teams = rosters.map(team).join(" ↔ ");
+    row.players = rosters.map(function (rid) {
+      var add = Object.keys(a).filter(function (p) { return String(a[p]) === rid; }).map(nm);
+      var drop = Object.keys(d).filter(function (p) { return String(d[p]) === rid; }).map(nm);
+      return [add.length ? team(rid) + " adds: " + add.join(", ") : "", drop.length ? team(rid) + " drops: " + drop.join(", ") : ""].filter(Boolean).join("  |  ");
+    }).filter(Boolean).join("  |  ");
+    if (t.b != null) row.details = "$" + t.b + " FAAB bid";
+  }
+  if (note) { row.details = note.details || row.details; row.status = note.status || ""; }
+  return row;
+}
+function seasonLabel(s) { s = Number(s); return s ? s + "-" + String((s + 1) % 100).padStart(2, "0") : ""; }
+
 // Same call style the card code uses
 function api(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
@@ -75,7 +119,7 @@ function api(fn) {
 var S = {
   L: null, books: {}, rIdx: null, log: null, rules: null, hash: "",
   pl: { q: "", f: "all", team: "", sort: "s0", asc: false, limit: 150 },
-  lg: { team: "", type: "", n: 100 },
+  lg: { team: "", type: "", season: "", n: 100 },
   trade: { teams: [], moves: [] }, shareUrl: "",
   admin: { tab: "pending", edit: null, q: "", log: null, waive: null },
 };
@@ -122,6 +166,7 @@ function onPick(act, v) {
   else if (act === "plTeam") { S.pl.team = v; S.pl.limit = 150; rerender(); }
   else if (act === "logTeam") { S.lg.team = v; S.lg.n = 100; rerender(); }
   else if (act === "logType") { S.lg.type = v; S.lg.n = 100; rerender(); }
+  else if (act === "logSeason") { S.lg.season = v; S.lg.n = 100; rerender(); }
 }
 function closeMenus(except) {
   Array.prototype.forEach.call(document.querySelectorAll(".dd.open"), function (d) {
@@ -652,12 +697,12 @@ function logAsset(it) {
 function logBody(r) {
   var parts = String(r.players || "").split(/\s+\|\s+/);
   var sides = parts.map(function (part) {
-    var m = part.match(/^(.*?) gets:\s*(.*)$/);
-    return m ? { team: m[1].trim(), items: m[2].split(/,\s*(?![^()]*\))/) } : null;
+    var m = part.match(/^(.*?) (gets|adds|drops):\s*(.*)$/);
+    return m ? { team: m[1].trim(), verb: m[2], items: m[3].split(/,\s*(?![^()]*\))/) } : null;
   });
   if (sides.length && sides.every(Boolean)) {
     return '<div class="deal">' + sides.map(function (sd) {
-      return '<div class="side"' + teamStyle(codeOf(sd.team)) + '><div class="side-h">' + tname(sd.team) + '<span class="muted small">gets</span></div>' +
+      return '<div class="side v-' + sd.verb + '"' + teamStyle(codeOf(sd.team)) + '><div class="side-h">' + tname(sd.team) + '<span class="verb">' + sd.verb + "</span></div>" +
         '<div class="side-b">' + sd.items.map(logAsset).join("") + "</div></div>";
     }).join("") + "</div>";
   }
@@ -688,12 +733,18 @@ function logEntry(r, compact) {
 }
 function logList() {
   var f = S.lg, rows = S.log.rows.filter(function (r) {
-    if (f.type && logKind(r.type) !== f.type && r.type !== f.type) return false;
+    if (f.type && r.type !== f.type && !new RegExp(f.type, "i").test(r.type)) return false;   // "Adds" includes Add/Drop and commish adds
     if (f.team && r.teams.toLowerCase().indexOf(teamName(f.team).toLowerCase()) < 0) return false;
+    if (f.season && String(r.season) !== f.season) return false;
     return true;
   });
-  var shown = rows.slice(0, f.n);
-  return box("", (shown.map(function (r) { return logEntry(r); }).join("") || '<div class="empty">No transactions match.</div>')) +
+  var shown = rows.slice(0, f.n), last = null;
+  return '<div class="muted small" style="margin:0 2px 8px">' + rows.length + " transaction" + (rows.length === 1 ? "" : "s") + "</div>" +
+    box("", (shown.map(function (r) {
+      var sep = r.season && r.season !== last ? '<div class="log-sep"><span>' + esc(seasonLabel(r.season)) + " season</span></div>" : "";
+      last = r.season || last;
+      return sep + logEntry(r);
+    }).join("") || '<div class="empty">No transactions match.</div>')) +
     (rows.length > shown.length ? '<button class="more" data-act="logMore">Show more</button>' : "");
 }
 function pageLog() {
@@ -702,12 +753,18 @@ function pageLog() {
     return '<div class="pagehead"><h1>Transactions</h1></div>' + loading("Loading the League Log");
   }
   var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"]];
+  var seasons = []; S.log.rows.forEach(function (r) { if (r.season && seasons.indexOf(String(r.season)) < 0) seasons.push(String(r.season)); });
+  seasons.sort().reverse();
   S.log.rows.forEach(function (r) { if (!logKind(r.type) && !types.some(function (t) { return t[0] === r.type; })) types.push([r.type, r.type]); });
-  return '<div class="pagehead"><div><h1>Transactions</h1><div class="sub">League Log, newest first' + (S.log.lastSync ? " · last synced " + esc(S.log.lastSync) : "") + "</div></div></div>" +
+  var first = S.log.rows.length ? new Date(S.log.rows[S.log.rows.length - 1].ts) : null;
+  return '<div class="pagehead"><div><h1>Transactions</h1><div class="sub">Every move in league history' + (first && !isNaN(first) ? " since " + esc(first.toLocaleDateString(undefined, { month: "long", year: "numeric" })) : "") +
+    ", newest first" + (S.log.lastSync ? " · last synced " + esc(S.log.lastSync) : "") + "</div></div></div>" +
     '<div class="row start">' + dropdown("logTeam", S.lg.team, teamItems("All teams"), "Team") +
     dropdown("logType", S.lg.type, types.map(function (t) {
       return { v: t[0], cls: "type-opt", html: t[0] ? '<span class="badge ' + logKind(t[0]) + '">' + esc(t[1]) + "</span>" : '<span class="dd-name">' + esc(t[1]) + "</span>" };
-    }), "Type") + "</div>" +
+    }), "Type") +
+    (seasons.length > 1 ? dropdown("logSeason", S.lg.season || "", [{ v: "", html: '<span class="dd-name">All seasons</span>' }].concat(seasons.map(function (x) {
+      return { v: x, html: '<span class="dd-name">' + esc(seasonLabel(x)) + "</span>" }; })), "Season") : "") + "</div>" +
     '<div id="logList">' + logList() + "</div>";
 }
 

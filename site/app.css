@@ -663,3 +663,12 @@
   .dd-menu.right { left: auto; right: 0; }
   .dd-btn { padding-left: 12px; }
   .dd-cur:has(.tcode) { margin-left: -4px; }
+
+  /* full history: season dividers, adds / drops sides */
+  .log-sep { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .log-sep::before, .log-sep::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .log-sep:first-child { margin-top: 0; }
+  .verb { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .side.v-adds .verb { color: var(--good); }
+  .side.v-drops .verb { color: var(--bad); }
+  .side.v-drops .who .plink { color: var(--muted); }
