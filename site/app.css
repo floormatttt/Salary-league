@@ -791,3 +791,20 @@
   @media (max-width: 640px) { .f.wide { grid-column: auto; } .alog .al { grid-template-columns: 1fr; } .crow { flex-wrap: wrap; } }
   @media (max-width: 900px) { .admin { grid-template-columns: minmax(0, 1fr); } }
   .admin-main, .apanel { min-width: 0; }
+
+  /* ================= contract type chips, restructure editor ================= */
+  .stc.m-g, .sea.m-g { --mk: #64748b; }
+  @media (prefers-color-scheme: dark) { .stc.m-g, .sea.m-g { --mk: #94a3b8; } }
+  .stchips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .stc { padding: 3px 7px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--mk) 55%, transparent); background: color-mix(in srgb, var(--mk) 8%, var(--card));
+    color: var(--mk); font: inherit; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; cursor: pointer; line-height: 1.3; }
+  .stc:hover { background: color-mix(in srgb, var(--mk) 18%, var(--card)); }
+  .stc.on { background: var(--mk); border-color: var(--mk); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--mk) 35%, transparent); }
+  .sea { border-left: 4px solid var(--mk, var(--line)); transition: border-color .15s ease, background .15s ease; }
+  .sea[class*="m-"] { background: color-mix(in srgb, var(--mk) 6%, var(--card-2)); }
+  .sea.m-g { background: var(--card-2); }
+  .sea.locked { border-left-color: var(--line); background: repeating-linear-gradient(135deg, var(--card-2) 0 8px, var(--card) 8px 16px); }
+  .sea.locked .locked-v { padding: 6px 0 2px; }
+  .seasons { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .fa-start { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+  .badge.Rest { background: color-mix(in srgb, var(--m-po) 15%, transparent); color: var(--m-po); }

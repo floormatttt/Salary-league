@@ -21,15 +21,30 @@ describe("contracts", () => {
   test("an extension fills the new years, then UFA, and tags the details", () => {
     const D = freshData();
     const jj = row(D, "Jalen Johnson");
-    const res = MU.extend(D, { id: jj.id, start: 3, years: 2, amt: "45", st: "max" });
+    const res = MU.extend(D, { id: jj.id, years: 2, amt: "45", st: "max" });   // starts in his free-agency year (2029-30)
     assert.deepEqual(jj.sal.slice(0, 6), [32, 43, 40, 45, 45, "UFA"]);
     assert.deepEqual(jj.st.slice(3, 6), ["MAX", "MAX", ""]);
     assert.match(jj.det, /Max Ext 29-30$/);
     assert.match(res.log, /Extended Jalen Johnson \(ATL\): \$45\.0M × 2 years \(29-30 to 30-31\) · MAX/);
-    MU.extend(D, { id: jj.id, start: 3, years: 1, amt: 50 });
+    MU.extend(D, { id: jj.id, years: 1, amt: 50 });
+    assert.equal(jj.sal[5], 50, "the next extension starts at the new free-agency year");
     assert.equal((jj.det.match(/Ext/g) || []).length, 1, "re-extending replaces the tag");
-    assert.throws(() => MU.extend(D, { id: jj.id, start: 0, years: 2, amt: 5 }), /first season/);
-    assert.throws(() => MU.extend(D, { id: jj.id, start: 2, years: 9, amt: 5 }), /1 to 5 years/);
+    assert.throws(() => MU.extend(D, { id: jj.id, years: 9, amt: 5 }), /1 to 5 years/);
+    const fa = D.contracts.rows.find(r => typeof r.sal[0] !== "number" && !r.n.includes("cap hold"));
+    if (fa) assert.throws(() => MU.extend(D, { id: fa.id, years: 1, amt: 5 }), /no free-agency year/);
+  });
+
+  test("a restructure changes only the existing years and tags the team", () => {
+    const D = freshData();
+    const jj = row(D, "Jalen Johnson");
+    const res = MU.restructure(D, { id: jj.id, team: "HOU", sal: [30, 45, 40], st: ["", "PO", ""] });
+    assert.deepEqual(jj.sal.slice(0, 4), [30, 45, 40, "UFA"]);
+    assert.equal(jj.st[1], "PO");
+    assert.match(jj.det, /HOU Restructure$/);
+    assert.match(res.log, /Restructured Jalen Johnson \(ATL\): \$32\.0M \/ \$43\.0M \/ \$40\.0M → \$30\.0M \/ \$45\.0M \/ \$40\.0M/);
+    assert.throws(() => MU.restructure(D, { id: jj.id, sal: [30, 45, 40, 20] }), /only changes the years he already has/);
+    assert.throws(() => MU.restructure(D, { id: jj.id, sal: [30, 45, 40] , st: ["", "PO", ""] }), /Nothing changed/);
+    assert.throws(() => MU.restructure(D, { id: jj.id, sal: [30, "", 40] }), /needs a salary/);
   });
 
   test("a new contract lands at the end of its NBA team's group, with a new id", () => {

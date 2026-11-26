@@ -130,18 +130,19 @@ function holdRows(tx) {
 // Extensions recorded on the commissioner page (dated, from the admin log)
 function extensionRows(alog) {
   var season = LIVE.league && LIVE.league.season;
-  return (alog || []).filter(function (r) { return /Extension/.test(r.action); }).map(function (r) {
-    var m = /Extended (.*?) \(([A-Z]+)\): (.*)$/.exec(r.details) || [];
+  return (alog || []).filter(function (r) { return /Extension|Restructure/.test(r.action); }).map(function (r) {
+    var re = /Restructure/.test(r.action);
+    var m = (re ? /Restructured (.*?) \(([A-Z]+)\): (.*)$/ : /Extended (.*?) \(([A-Z]+)\): (.*)$/).exec(r.details) || [];
     var who = rosterIdx()[LM.norm(m[1] || "")];
-    return { ts: r.ts, season: season, type: "Extension", teams: who ? teamName(who.code) : "", players: m[1] || "", details: m[3] || r.details, status: "" };
+    return { ts: r.ts, season: season, type: re ? "Restructure" : "Extension", teams: who ? teamName(who.code) : "", players: m[1] || "", details: m[3] || r.details, status: "" };
   });
 }
 // Extensions already on the books (contract details say "Ext 27-28"), not dated
 function bookedExtensions() {
   var idx = rosterIdx();
-  return S.L.contracts.filter(function (c) { return !c.hold && /\bExt\b/.test(c.det); }).map(function (c) {
+  return S.L.contracts.filter(function (c) { return !c.hold && /\bExt\b|Restructure/.test(c.det); }).map(function (c) {
     var r = idx[LM.norm(c.n)];
-    return { c: c, code: r ? r.code : "" };
+    return { c: c, code: r ? r.code : "", kind: /\bExt\b/.test(c.det) ? "Ext" : "Rest" };
   });
 }
 function seasonLabel(s) { s = Number(s); return s ? s + "-" + String((s + 1) % 100).padStart(2, "0") : ""; }
@@ -740,7 +741,7 @@ function tradeChanged() {
 }
 
 /* ============================ transactions ============================ */
-function logKind(type) { return /trade/i.test(type) ? "Trade" : /cap hold/i.test(type) ? "Hold" : /extension/i.test(type) ? "Ext" : /add/i.test(type) ? "Add" : /drop/i.test(type) ? "Drop" : ""; }
+function logKind(type) { return /trade/i.test(type) ? "Trade" : /cap hold/i.test(type) ? "Hold" : /extension/i.test(type) ? "Ext" : /restructure/i.test(type) ? "Rest" : /add/i.test(type) ? "Add" : /drop/i.test(type) ? "Drop" : ""; }
 // --- transaction entries: team-colored names, player photos, a "gets" card per side of a trade ---
 function codeOf(name) { var t = S.L.teams.filter(function (x) { return x.name === name; })[0]; return t ? t.code : ""; }
 function tname(name) {
@@ -801,9 +802,14 @@ function logList() {
     return true;
   });
   var shown = rows.slice(0, f.n), last = null;
-  var ext = (!f.type || f.type === "Extension") && !f.season ? bookedExtensions().filter(function (x) { return !f.team || x.code === f.team; }) : [];
-  var extBox = ext.length ? '<details class="box booked"' + (f.type === "Extension" ? " open" : "") + '><summary><span class="badge Ext">Extensions</span><b>' + ext.length +
-    " extension" + (ext.length === 1 ? "" : "s") + ' on the books</b><span class="muted small">signed before tracking began</span></summary><div class="booked-list">' +
+  var ext = !f.season ? bookedExtensions().filter(function (x) {
+    return (!f.team || x.code === f.team) && (!f.type || (f.type === "Extension" && x.kind === "Ext") || (f.type === "Restructure" && x.kind === "Rest"));
+  }) : [];
+  var nExt = ext.filter(function (x) { return x.kind === "Ext"; }).length, nRest = ext.length - nExt;
+  var extBox = ext.length ? '<details class="box booked"' + (f.type === "Extension" || f.type === "Restructure" ? " open" : "") + "><summary>" +
+    (nExt ? '<span class="badge Ext">Extensions</span>' : "") + (nRest ? '<span class="badge Rest">Restructures</span>' : "") + "<b>" +
+    [nExt ? nExt + " extension" + (nExt === 1 ? "" : "s") : "", nRest ? nRest + " restructure" + (nRest === 1 ? "" : "s") : ""].filter(Boolean).join(" and ") +
+    ' on the books</b><span class="muted small">done before tracking began</span></summary><div class="booked-list">' +
     ext.map(function (x) {
       var c = x.c, i0 = c.sal.findIndex(function (v, i) { return i > 0 && typeof v === "number"; });
       return '<div class="list-row">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.det) + "</span></div>" + tcode(x.code) +
@@ -822,7 +828,7 @@ function pageLog() {
     api("getLog").then(function (d) { S.log = d; if (/^log/.test(S.hash)) rerender(); }, function (e) { view().innerHTML = box("", '<div class="err">' + esc(e.message) + "</div>"); });
     return '<div class="pagehead"><h1>Transactions</h1></div>' + loading("Loading the League Log");
   }
-  var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"], ["Cap hold", "Cap holds"], ["Extension", "Extensions"]];
+  var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"], ["Cap hold", "Cap holds"], ["Extension", "Extensions"], ["Restructure", "Restructures"]];
   var seasons = []; S.log.rows.forEach(function (r) { if (r.season && seasons.indexOf(String(r.season)) < 0) seasons.push(String(r.season)); });
   seasons.sort().reverse();
   S.log.rows.forEach(function (r) { if (!logKind(r.type) && !types.some(function (t) { return t[0] === r.type; })) types.push([r.type, r.type]); });
@@ -862,7 +868,7 @@ function pageRules() {
 }
 
 /* ============================ commissioner ============================ */
-var ADMIN_TABS = [["pending", "Pending"], ["contracts", "Contracts"], ["extend", "Extensions"], ["holds", "Cap holds"],
+var ADMIN_TABS = [["pending", "Pending"], ["contracts", "Restructures"], ["extend", "Extensions"], ["holds", "Cap holds"],
                   ["waive", "Waived & re-signed"], ["cash", "Cash"], ["ranks", "Power rankings"], ["sync", "Sync & log"]];
 var ICONS = {
   pending: '<circle cx="10" cy="10" r="7"/><path d="M10 6.2V10l2.6 1.8"/>',
@@ -944,16 +950,34 @@ function pageAdmin() {
     (A.edit ? contractEditor(A.edit) : "") + body + "</div></div>" + activeNames();
 }
 
+// Contract type buttons, colored like the money tags (Guaranteed / PO / TO / Max / Supermax / Cap hold)
+var STAT_CHIPS = [["", "Guaranteed", "g"], ["PO", "Player option", "po"], ["TO", "Team option", "to"], ["MAX", "Max", "max"], ["SMAX", "Supermax", "smax"], ["HOLD", "Cap hold", "hold"]];
+function statKind(st) { var x = STAT_CHIPS.filter(function (c) { return c[0] === (st || ""); })[0]; return x ? x[2] : "g"; }
+function statChips(i, cur) {
+  return '<div class="stchips" role="radiogroup" aria-label="Contract type">' + STAT_CHIPS.map(function (x) {
+    return '<button type="button" class="stc m-' + x[2] + ((cur || "") === x[0] ? " on" : "") + '" data-act="setStat" data-i="' + i + '" data-v="' + x[0] + '" role="radio" aria-checked="' +
+      ((cur || "") === x[0]) + '" title="' + x[1] + '">' + (x[0] || "G") + "</button>";
+  }).join("") + '<input type="hidden" data-stat="' + i + '" value="' + esc(cur || "") + '"></div>';
+}
+// mode "restructure": only the years he already has can change, and saving is a Restructure transaction
 function contractEditor(c) {
-  var L = S.L, r = c.id ? rosterIdx()[LM.norm(c.n)] : null;
+  var L = S.L, r = c.id ? rosterIdx()[LM.norm(c.n)] : null, re = c.mode === "restructure";
   var cards = L.seasons.map(function (s, i) {
-    var v = c.sal[i];
-    return '<div class="sea"><span>' + esc(s) + '</span><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" placeholder="—" aria-label="Salary ' + esc(s) + '">' +
-      '<select data-stat="' + i + '" aria-label="Status ' + esc(s) + '">' + ["", "PO", "TO", "MAX", "SMAX", "HOLD"].map(function (x) { return opt(x, x || "Guaranteed", (c.st[i] || "") === x); }).join("") + "</select></div>";
+    var v = c.sal[i], has = typeof c.orig[i] === "number";
+    if (re && !has) return '<div class="sea locked"><span>' + esc(s) + '</span><div class="locked-v">' + (salCell(c, i) || '<span class="muted">—</span>') + "</div></div>";
+    return '<div class="sea m-' + statKind(c.st[i]) + '"><span>' + esc(s) + '</span><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" placeholder="—" aria-label="Salary ' + esc(s) + '">' +
+      statChips(i, c.st[i]) + "</div>";
   }).join("");
+  var who = c.id ? '<div class="ed-who">' + avatar(c.n) + "<div><b>" + esc(plain(c.n)) + '</b><span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : "") + (c.det ? " · " + esc(c.det) : "") + "</span></div></div>" : "";
+  if (re) {
+    return '<section class="box apanel editor" id="editor"><div class="panel-head"><h3>Restructure contract</h3><button class="x sm" data-act="cancelEdit" aria-label="Close">×</button></div>' + who +
+      '<div class="f"><span>New salary for each year he already has ($M)</span><div class="seasons">' + cards + "</div></div>" +
+      '<p class="muted small">Only existing years can change. Saving records a <b>Restructure</b> in Transactions and tags his details' + (r ? " “" + esc(r.code) + " Restructure”" : "") + ". Extend under Extensions.</p>" +
+      '<div class="actions"><button class="btn pri" data-act="saveContract">Save restructure</button><button class="btn" data-act="cancelEdit">Cancel</button>' +
+      '<button class="linkbtn small" data-act="fullEdit">Fix a typo instead (not a transaction)</button></div></section>';
+  }
   return '<section class="box apanel editor" id="editor"><div class="panel-head"><h3>' + (c.id ? "Edit contract" : "New contract") + "</h3>" +
-    '<button class="x sm" data-act="cancelEdit" aria-label="Close">×</button></div>' +
-    (c.id ? '<div class="ed-who">' + avatar(c.n) + "<div><b>" + esc(plain(c.n)) + '</b><span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : "") + "</span></div></div>" : "") +
+    '<button class="x sm" data-act="cancelEdit" aria-label="Close">×</button></div>' + who +
     '<div class="form2">' + field("Player name", '<input type="text" data-k="n" value="' + esc(c.n) + '">') +
     field("NBA team", '<input type="text" data-k="nba" value="' + esc(c.nba) + '" placeholder="ATL (Z if unknown)" style="text-transform:uppercase">') + "</div>" +
     '<div class="f" style="margin-top:14px"><span>Salary by season ($M, or UFA / RFA)</span><div class="seasons">' + cards + "</div></div>" +
@@ -962,15 +986,18 @@ function contractEditor(c) {
     '<div class="actions"><button class="btn pri" data-act="saveContract">Save contract</button><button class="btn" data-act="cancelEdit">Cancel</button>' +
     (c.id ? '<button class="btn danger" data-act="deleteContract" data-confirm="Tap again to delete">Delete</button>' : "") + "</div></section>";
 }
-function editable(c) { return { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det }; }
-function contractList(list) {
+function editable(c, mode) {
+  var has = c.sal.some(function (v) { return typeof v === "number"; });
+  return { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det, orig: c.sal.slice(), mode: mode === "restructure" && has && !c.hold ? "restructure" : "full" };
+}
+function contractList(list, mode) {
   if (!list.length) return '<div class="empty">Nothing here.</div>';
   var idx = rosterIdx();
   return '<div class="clist">' + list.map(function (c) {
     var r = idx[LM.norm(c.n)], code = c.hold ? holdTeam(c.n) : r ? r.code : "";
     return '<div class="crow">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n, c.hold ? plain(c.n) : "") + (c.hold ? '<span class="flag bad">Cap hold</span>' : "") +
       '<span class="muted small">' + esc(c.nba) + (c.det ? " · " + esc(c.det) : "") + "</span></div>" + tcode(code) +
-      '<div class="num">' + (salCell(c, 0) || '<span class="muted">—</span>') + '</div><button class="btn sm" data-act="edit" data-id="' + c.id + '">Edit</button></div>';
+      '<div class="num">' + (salCell(c, 0) || '<span class="muted">—</span>') + '</div><button class="btn sm" data-act="edit" data-id="' + c.id + '"' + (mode ? ' data-mode="' + mode + '"' : "") + ">" + (mode === "restructure" ? "Restructure" : "Edit") + "</button></div>";
   }).join("") + "</div>";
 }
 function contractSearch(q) {
@@ -985,9 +1012,9 @@ function adminPending() {
 }
 function adminContracts() {
   var q = S.admin.q.trim();
-  return panel("Find a contract", '<div class="toolbar"><div class="search"><input type="search" id="cq" placeholder="Player or NBA team (e.g. LAL)" value="' + esc(q) + '" aria-label="Find a contract"></div>' +
+  return panel("Restructure a contract", '<div class="toolbar"><div class="search"><input type="search" id="cq" placeholder="Player or NBA team (e.g. LAL)" value="' + esc(q) + '" aria-label="Find a contract"></div>' +
     '<button class="btn pri" data-act="newContract">+ New contract</button></div><div id="cList">' +
-    (q ? contractList(contractSearch(q)) : '<div class="empty">Search to edit or delete a contract.</div>') + "</div>");
+    (q ? contractList(contractSearch(q), "restructure") : '<div class="empty">Search for a player to restructure his contract.</div>') + "</div>");
 }
 // ---- extensions
 function extState() {
@@ -1001,7 +1028,7 @@ function extPreview() {
   var after = null, err = "";
   try {
     var copy = { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det };
-    Mutations.extend({ contracts: { seasons: L.seasons, rows: [copy] } }, { id: c.id, start: E.start, years: E.years, amt: E.amt, st: E.st });
+    Mutations.extend({ contracts: { seasons: L.seasons, rows: [copy] } }, { id: c.id, years: E.years, amt: E.amt, st: E.st });
     after = copy;
   } catch (e) { err = e.message; }
   var row = function (label, x) { return "<tr><td>" + label + "</td>" + L.seasons.map(function (_, i) { var v = salCell(x, i); return "<td" + (v ? "" : ' class="dim"') + ">" + (v || "·") + "</td>"; }).join("") + "</tr>"; };
@@ -1011,26 +1038,24 @@ function extPreview() {
 }
 function adminExtend() {
   var E = extState(), L = S.L, c = contractByName(E.name);
-  if (!E.start) {
-    var first = c ? c.sal.findIndex(function (v, i) { return i > 0 && typeof v !== "number"; }) : 1;
-    E.start = String(first > 0 ? first : 1);
-  }
-  var seasons = L.seasons.map(function (x, i) { return [i, x]; }).slice(1);
+  var fa = c ? Mutations.faYear(c) : null;
   return panel("Extend a contract",
     '<div class="form2">' + field("Player", '<input type="text" list="activeNames" id="extName" data-k="extName" value="' + esc(E.name) + '" placeholder="Name on the contracts list">', true) +
-    field("First season", fieldDD("extStart", E.start, plainItems(seasons), "First season")) +
+    field("Starts", '<div class="fa-start" id="extStartShow">' + (c ? fa != null ? '<span class="fa m-ufa">' + esc(L.seasons[fa]) + "</span> his free-agency year" : '<span class="muted">No free-agency year to extend into</span>' : '<span class="muted">His free-agency year</span>') + "</div>") +
     field("Years", fieldDD("extYears", E.years, plainItems([[1, "1 year"], [2, "2 years"], [3, "3 years"], [4, "4 years"], [5, "5 years"]]), "Years")) +
     field("Salary per year ($M)", '<input type="number" min="0.5" step="0.1" inputmode="decimal" id="extAmt" data-k="extAmt" value="' + esc(E.amt) + '" placeholder="e.g. 25">') +
     field("Kind", fieldDD("extSt", E.st, [{ v: "", html: '<span class="dd-name">Regular</span>' }, { v: "MAX", html: '<span class="mny m-max">Max</span>' },
       { v: "SMAX", html: '<span class="mny m-smax">Supermax</span>' }], "Kind")) + "</div>" +
     '<div id="extPreview" style="margin-top:14px">' + extPreview() + "</div>" +
     '<div class="actions"><button class="btn pri" data-act="extend">Record extension</button></div>' +
-    '<p class="muted small">Fills those seasons, makes the next one UFA, tags the details (e.g. “Ext 29-30”) and adds it to Transactions.</p>');
+    '<p class="muted small">Starts in his free-agency year, fills that many seasons, makes the next one UFA, tags the details (e.g. “Ext 29-30”) and adds it to Transactions.</p>');
 }
 function refreshExt() {
   var E = extState();
-  E.name = val("extName"); E.start = val("extStart"); E.years = val("extYears"); E.amt = val("extAmt"); E.st = val("extSt");
+  E.name = val("extName"); E.years = val("extYears"); E.amt = val("extAmt"); E.st = val("extSt");
   var el = $("extPreview"); if (el) el.innerHTML = extPreview();
+  var c = contractByName(E.name), fa = c ? Mutations.faYear(c) : null, show = $("extStartShow");
+  if (show) show.innerHTML = c ? fa != null ? '<span class="fa m-ufa">' + esc(S.L.seasons[fa]) + "</span> his free-agency year" : '<span class="muted">No free-agency year to extend into</span>' : '<span class="muted">His free-agency year</span>';
 }
 // ---- cap holds
 function adminHolds() {
@@ -1219,14 +1244,29 @@ document.addEventListener("click", function (ev) {
     case "adminTab": A.tab = b.getAttribute("data-v"); A.edit = null; rerender(); window.scrollTo(0, 0); break;
     case "edit":
       var id = Number(b.getAttribute("data-id"));
-      A.edit = editable(S.L.contracts.filter(function (c) { return c.id === id; })[0]); rerender(); window.scrollTo(0, $("editor").offsetTop - 70); break;
-    case "newContract": A.edit = { id: null, n: "", nba: "", sal: [], st: [], det: "" }; rerender(); break;
+      A.edit = editable(S.L.contracts.filter(function (c) { return c.id === id; })[0], b.getAttribute("data-mode")); rerender(); window.scrollTo(0, $("editor").offsetTop - 70); break;
+    case "fullEdit": A.edit.mode = "full"; rerender(); break;
+    case "setStat":
+      var box2 = b.closest(".stchips"), sea = b.closest(".sea");
+      box2.querySelector("input").value = b.getAttribute("data-v");
+      Array.prototype.forEach.call(box2.querySelectorAll(".stc"), function (x) { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", String(x === b)); });
+      if (sea) sea.className = "sea m-" + statKind(b.getAttribute("data-v"));
+      break;
+    case "newContract": A.edit = { id: null, n: "", nba: "", sal: [], st: [], det: "", orig: [], mode: "full" }; rerender(); break;
     case "cancelEdit": A.edit = null; rerender(); break;
     case "saveContract":
+      if (A.edit.mode === "restructure") {
+        var ed2 = $("editor"), rr = rosterIdx()[LM.norm(A.edit.n)];
+        var rs = { id: A.edit.id, team: rr ? rr.code : "",
+          sal: S.L.seasons.map(function (_, i) { var el = ed2.querySelector('[data-sal="' + i + '"]'); return el ? el.value.trim() : undefined; }),
+          st: S.L.seasons.map(function (_, i) { var el = ed2.querySelector('[data-stat="' + i + '"]'); return el ? el.value : undefined; }) };
+        busy(b, adminCall([["restructure", rs]], function (r) { return r.logs[0]; }).then(function () { A.edit = null; rerender(); }));
+        break;
+      }
       var ed = $("editor"), c = {
         id: A.edit.id, n: val("n").trim(), nba: val("nba").trim().toUpperCase(), det: val("det"),
-        sal: S.L.seasons.map(function (_, i) { return ed.querySelector('[data-sal="' + i + '"]').value.trim(); }),
-        st: S.L.seasons.map(function (_, i) { return ed.querySelector('[data-stat="' + i + '"]').value; }),
+        sal: S.L.seasons.map(function (_, i) { var el = ed.querySelector('[data-sal="' + i + '"]'); return el ? el.value.trim() : A.edit.sal[i]; }),
+        st: S.L.seasons.map(function (_, i) { var el = ed.querySelector('[data-stat="' + i + '"]'); return el ? el.value : A.edit.st[i]; }),
       };
       busy(b, adminCall([["saveContract", c]], "Contract saved").then(function () { A.edit = null; rerender(); }));
       break;
@@ -1236,7 +1276,7 @@ document.addEventListener("click", function (ev) {
     case "extend":
       var ec = contractByName(val("extName"));
       if (!ec) { toast("Pick a player who's on the contracts list", true); break; }
-      busy(b, adminCall([["extend", { id: ec.id, start: Number(val("extStart")), years: Number(val("extYears")), amt: val("extAmt"), st: val("extSt") }]],
+      busy(b, adminCall([["extend", { id: ec.id, years: Number(val("extYears")), amt: val("extAmt"), st: val("extSt") }]],
         function (r) { return r.logs[0]; }).then(function () { S.admin.ext = null; rerender(); }));
       break;
     case "addHold":
@@ -1282,14 +1322,9 @@ document.addEventListener("input", function (ev) {
   var t = ev.target;
   if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
   else if (t.id === "extName" || t.id === "extAmt") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
-    if (t.id === "extName" && contractByName(t.value)) {           // new player: start the extension after his current deal
-      var c = contractByName(t.value), first = c.sal.findIndex(function (v, i) { return i > 0 && typeof v !== "number"; });
-      var hid = view().querySelector('[data-k="extStart"]');
-      if (hid && first > 0) { hid.value = String(first); var opt2 = hid.parentNode.querySelector('.dd-opt[data-v="' + first + '"]'); if (opt2) hid.parentNode.querySelector(".dd-cur").innerHTML = opt2.innerHTML; }
-    }
     refreshExt(); }, 150); }
   else if (t.id === "cq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
-    S.admin.q = t.value; $("cList").innerHTML = S.admin.q.trim() ? contractList(contractSearch(S.admin.q)) : '<div class="empty">Search to edit or delete a contract.</div>'; }, 120); }
+    S.admin.q = t.value; $("cList").innerHTML = S.admin.q.trim() ? contractList(contractSearch(S.admin.q), "restructure") : '<div class="empty">Search to edit or delete a contract.</div>'; }, 120); }
 });
 
 document.addEventListener("submit", function (ev) {
