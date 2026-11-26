@@ -96,6 +96,39 @@ function teamOptions(sel, blank) {
     .map(function (t) { return opt(t.code, t.name + " (" + t.code + ")", t.code === sel); }).join("");
 }
 // A salary as a pill colored by the kind of money (LeagueMath.moneyKind); the status code stays as text
+/* Custom dropdown: a button plus a menu of rich options (team colors, badges).
+ * items: [{ v, html, label }]; picking one runs onPick(act, v), same as a <select> change. */
+function dropdown(act, value, items, aria, cls) {
+  var cur = items.filter(function (it) { return it.v === value; })[0] || items[0];
+  return '<div class="dd' + (cls ? " " + cls : "") + '"><button type="button" class="dd-btn" data-act="ddToggle" aria-haspopup="listbox" aria-expanded="false" aria-label="' + esc(aria) + '">' +
+    '<span class="dd-cur">' + cur.html + '</span><svg class="dd-caret" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '<div class="dd-menu" role="listbox" hidden>' + items.map(function (it) {
+      return '<button type="button" role="option" class="dd-opt' + (it.v === value ? " on" : "") + (it.cls ? " " + it.cls : "") + '" data-act="ddPick" data-dd="' + esc(act) + '" data-v="' + esc(it.v) + '"' +
+        (it.style || "") + ' aria-selected="' + (it.v === value) + '">' + it.html + "</button>";
+    }).join("") + "</div></div>";
+}
+// Team items: color chip + name + payroll level dot
+function teamItems(blank) {
+  var list = S.L.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (t) {
+    var p = book(t.code).payroll[0], tier = LM.tierOf(p);
+    return { v: t.code, style: teamStyle(t.code), cls: "team-opt",
+      html: '<span class="tcode tc"' + teamStyle(t.code) + ">" + esc(t.code) + '</span><span class="dd-name">' + esc(t.name) + "</span>" +
+        '<span class="dd-dot t-' + tier.key + '" title="' + esc(tier.label) + '"></span>' };
+  });
+  return blank != null ? [{ v: "", cls: "all-opt", html: '<span class="dd-all">All</span><span class="dd-name">' + esc(blank) + "</span>" }].concat(list) : list;
+}
+function onPick(act, v) {
+  if (act === "pickTeam") Nav.go("team/" + v);
+  else if (act === "plTeam") { S.pl.team = v; S.pl.limit = 150; rerender(); }
+  else if (act === "logTeam") { S.lg.team = v; S.lg.n = 100; rerender(); }
+  else if (act === "logType") { S.lg.type = v; S.lg.n = 100; rerender(); }
+}
+function closeMenus(except) {
+  Array.prototype.forEach.call(document.querySelectorAll(".dd.open"), function (d) {
+    if (d === except) return;
+    d.classList.remove("open"); d.querySelector(".dd-menu").hidden = true; d.querySelector(".dd-btn").setAttribute("aria-expanded", "false");
+  });
+}
 function salCell(c, i) {
   var k = LM.moneyKind(c, i);
   if (!k) return "";
@@ -326,7 +359,7 @@ function pageTeam(code) {
   var space = function (line) { var v = line - p; return '<b class="' + cls(v) + '">' + money(v) + "</b>"; };
   var head = '<div class="pagehead team-banner"' + teamStyle(t.code) + '><div class="tm"><div class="badge-team">' + esc(t.code) + "</div><div><h1>" + esc(t.name) + '</h1><div class="sub">' + esc(t.owner) + " · " + record(t) +
     " · " + f1(t.pf) + " PF" + (t.rank != null ? " · ranked #" + t.rank : "") + "</div></div></div>" +
-    '<select data-act="pickTeam" aria-label="Team">' + teamOptions(t.code) + "</select></div>";
+    dropdown("pickTeam", t.code, teamItems(), "Team", "on-banner") + "</div>";
   var statsHtml = '<div class="box"><div class="team-hero" style="margin-bottom:16px"><div><div class="muted small" style="font-weight:600">Payroll ' + esc(L.season) + "</div>" +
     '<div class="big">' + money(p) + "<small>M</small></div><div style=\"margin-top:8px\">" + tierChip(p) + "</div></div>" +
     "<div>" + meter(p, true) + meterScale() + "</div></div>" +
@@ -462,7 +495,7 @@ function pageContracts() {
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(S.L.season) + '</div><h1>Contracts</h1><div class="sub">Every contract on the Master list, plus anyone rostered without one</div></div>' +
     "</div>" +
     '<div class="toolbar"><div class="search"><input type="search" id="plq" placeholder="Search players or NBA teams" value="' + esc(S.pl.q) + '" autocomplete="off" aria-label="Search"></div>' +
-    '<select data-act="plTeam" aria-label="League team">' + teamOptions(S.pl.team, "All league teams") + "</select></div>" +
+    dropdown("plTeam", S.pl.team, teamItems("All league teams"), "League team") + "</div>" +
     '<div class="seg" style="margin-bottom:12px">' + PL_FILTERS.map(function (f) {
       return '<button data-act="plFilter" data-v="' + f[0] + '" class="' + (S.pl.f === f[0] ? "on" : "") + '">' + f[1] + '<span class="n">' + counts[f[0]] + "</span></button>"; }).join("") + "</div>" +
     moneyLegend() + '<div id="plTable" style="margin-top:12px">' + plTable() + "</div>";
@@ -671,8 +704,10 @@ function pageLog() {
   var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"]];
   S.log.rows.forEach(function (r) { if (!logKind(r.type) && !types.some(function (t) { return t[0] === r.type; })) types.push([r.type, r.type]); });
   return '<div class="pagehead"><div><h1>Transactions</h1><div class="sub">League Log, newest first' + (S.log.lastSync ? " · last synced " + esc(S.log.lastSync) : "") + "</div></div></div>" +
-    '<div class="row start"><select data-act="logTeam" aria-label="Team">' + teamOptions(S.lg.team, "All teams") + "</select>" +
-    '<select data-act="logType" aria-label="Type">' + types.map(function (t) { return opt(t[0], t[1], S.lg.type === t[0]); }).join("") + "</select></div>" +
+    '<div class="row start">' + dropdown("logTeam", S.lg.team, teamItems("All teams"), "Team") +
+    dropdown("logType", S.lg.type, types.map(function (t) {
+      return { v: t[0], cls: "type-opt", html: t[0] ? '<span class="badge ' + logKind(t[0]) + '">' + esc(t[1]) + "</span>" : '<span class="dd-all">All</span><span class="dd-name">' + esc(t[1]) + "</span>" };
+    }), "Type") + "</div>" +
     '<div id="logList">' + logList() + "</div>";
 }
 
@@ -871,6 +906,22 @@ document.addEventListener("click", function (ev) {
   var g = t.closest && t.closest("[data-go]");
   if (g) { ev.preventDefault(); if ($("modal").classList.contains("open")) closePlayer(); Nav.go(g.getAttribute("data-go")); return; }
   if (t.id === "modal" || t.id === "modalClose") { closePlayer(); return; }
+  var ddb = t.closest && t.closest("[data-act=ddToggle],[data-act=ddPick]");
+  if (ddb) {
+    var dd = ddb.closest(".dd");
+    if (ddb.getAttribute("data-act") === "ddPick") { closeMenus(); onPick(ddb.getAttribute("data-dd"), ddb.getAttribute("data-v")); return; }
+    var open = !dd.classList.contains("open");
+    closeMenus(dd);
+    dd.classList.toggle("open", open); dd.querySelector(".dd-menu").hidden = !open; ddb.setAttribute("aria-expanded", String(open));
+    if (open) {
+      var menu = dd.querySelector(".dd-menu");
+      menu.classList.remove("right");
+      if (window.innerWidth > 640 && menu.getBoundingClientRect().right > window.innerWidth - 8) menu.classList.add("right");
+      var on = dd.querySelector(".dd-opt.on") || dd.querySelector(".dd-opt"); if (on) on.focus({ preventScroll: true });
+    }
+    return;
+  }
+  if (!(t.closest && t.closest(".dd"))) closeMenus();
   var th = t.closest && t.closest("th[data-act=plSort]");
   if (th) {
     var k = th.getAttribute("data-k");
@@ -1027,7 +1078,17 @@ document.addEventListener("error", function (ev) {
   });
 })();
 
-document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && $("modal").classList.contains("open")) closePlayer(); });
+document.addEventListener("keydown", function (ev) {
+  if (ev.key === "Escape" && document.querySelector(".dd.open")) { var d = document.querySelector(".dd.open"); closeMenus(); d.querySelector(".dd-btn").focus(); return; }
+  if (ev.key === "Escape" && $("modal").classList.contains("open")) closePlayer();
+  // arrow keys move through an open menu
+  var menu = document.querySelector(".dd.open .dd-menu");
+  if (menu && (ev.key === "ArrowDown" || ev.key === "ArrowUp")) {
+    var opts = Array.prototype.slice.call(menu.querySelectorAll(".dd-opt")), i = opts.indexOf(document.activeElement);
+    var n = opts[Math.max(0, Math.min(opts.length - 1, i + (ev.key === "ArrowDown" ? 1 : -1)))];
+    if (n) { n.focus(); ev.preventDefault(); }
+  }
+});
 
 /* ============================ start ============================ */
 (function start() {
