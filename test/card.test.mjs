@@ -23,6 +23,10 @@ test("fantasy scoring and summary from a box score", () => {
   const g = { pts: 20, reb: 10, ast: 10, stl: 1, blk: 0, to: 2, pf: 1, fgm: 8, fga: 15, fg3m: 2, fg3a: 5, ftm: 2, fta: 2, min: 34 };
   assert.equal(s.score(g), 20 + 12 + 15 + 3 - 2 + 1 + 2);
   assert.deepEqual(s.unscored, ["xyz"]);
+  // this league's real settings: half a point per three made (Sleeper's "tpm")
+  const league = CardData.scorer({ ast: 1, blk: 2, bonus_pt_40p: 2, bonus_pt_50p: 2, dd: 1, ff: -2, pts: 0.5, reb: 1, stl: 2, td: 2, tf: -2, to: -1, tpm: 0.5 });
+  assert.equal(league.score(g), 10 + 10 + 10 + 2 - 2 + 1 + 2 + 2 * 0.5, "2 threes = +1.0");
+  assert.deepEqual(league.unscored, ["ff", "tf"], "only flagrant/technical fouls aren't in the box score");
   const sum = CardData.summarize([Object.assign({ fp: 51 }, g), Object.assign({ fp: 20 }, g, { min: 0 })]);
   assert.equal(sum.g, 1, "DNPs don't count");
   assert.equal(sum.adv.td, 1);
