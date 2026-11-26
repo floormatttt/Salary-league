@@ -614,3 +614,10 @@
   th, .eyebrow, .box > h3, h3.sec, h2.sec, .panel-head h3, tr.grp td { font-weight: 800; }
   h1, .hero h1, .brand, .kpi .v, .team-hero .big, .verdict, .tcard-top b, .tbox-head b, .hdr h1 { -webkit-text-stroke: .35px currentColor; }
   html, body { letter-spacing: .005em; }
+
+  /* regular text heavier too (everything that isn't already bold) */
+  html, body, p, li, td, input, select, textarea, label.f, .muted, .small, .sub, .meta, .kpi .k, .stat span, .ent .d span, .when, .list-row .nm .small,
+  .side-h .small, .legend, .mlegend, .scale, .pchart .val, .pchart .lbl, .foot, .asset-main .nm small, .tcard-top span, .hero .sub, .pagehead .sub,
+  dl.bio dt, dl.bio dd, .fa, .tag, .status, .empty, .loading, .pickchip, .rules td, .axis, .sheet-bar b { font-weight: 650; }
+  .plink, .asset-main .nm, a.team, .tm a.team, b, strong, .stat b, .list-row .num, .mny, .mny.m-g, .tier, .btn, .dl, .chip, .badge, .tname, .tcode,
+  .seg button, .nav a, .ent .d b { font-weight: 750; }
