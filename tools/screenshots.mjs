@@ -28,7 +28,10 @@ function fakeLog() {
   return { names: ["minutes", "points", "totalRebounds", "assists", "steals", "blocks", "turnovers", "fouls", "fieldGoalsMade-fieldGoalsAttempted", "threePointFieldGoalsMade-threePointFieldGoalsAttempted", "freeThrowsMade-freeThrowsAttempted"],
     events, seasonTypes: [{ displayName: "2026-27 Regular Season", categories: [{ events: rows }] }] };
 }
-const espn = { [require_norm("Jalen Johnson")]: [{ id: "4701230", name: "Jalen Johnson", team: "ATL", pos: "F", jersey: "1", ht: "6' 9\"", wt: "220 lbs", age: 24, dob: "2001-12-18", born: "Milwaukee, WI", college: "Duke", exp: 5, img: "", inj: null }] };
+const espn = { [require_norm("Jalen Johnson")]: [{ id: "4701230", name: "Jalen Johnson", team: "ATL", pos: "F", jersey: "1", ht: "6' 9\"", wt: "220 lbs", age: 24, dob: "2001-12-18", born: "Milwaukee, WI", college: "Duke", exp: 5, img: "https://a.espncdn.com/i/headshots/nba/players/full/4701230.png", inj: null }] };
+// every contract gets a stand-in photo URL, so the photo layout shows up offline
+D.contracts.rows.forEach((c, i) => { const k = require_norm(c.n); if (!espn[k]) espn[k] = [{ id: String(9000 + i), name: c.n, img: "https://a.espncdn.com/i/headshots/nba/players/full/" + (9000 + i) + ".png" }]; });
+const PHOTO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 70"><rect width="96" height="70" fill="#cfd5df"/><circle cx="48" cy="26" r="15" fill="#8b93a3"/><path d="M18 70c4-18 16-26 30-26s26 8 30 26z" fill="#8b93a3"/></svg>';
 function require_norm(n) { return createRequire(import.meta.url)("../lib/LeagueMath.js").norm(n); }
 
 function respond(url, method) {
@@ -55,6 +58,7 @@ function respond(url, method) {
     if (p === "/traded_picks") return json(live.traded);
   }
   if (u.host.endsWith("espn.com") && /gamelog/.test(u.pathname)) return json(fakeLog());
+  if (u.host === "a.espncdn.com") return { status: 200, contentType: "image/svg+xml", body: PHOTO };
   if (u.host === "api.github.com") {
     if (method === "OPTIONS") return { status: 204, headers: CORS, body: "" };
     if (u.pathname.endsWith("/git/ref/heads/main")) return json({ object: { sha: "abc" } });

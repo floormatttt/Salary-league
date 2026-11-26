@@ -26,10 +26,10 @@ function sleeper(path) { return getJson(SLEEPER + path, "Sleeper " + path); }
 
 function loadLeague() {
   var id = League.CONFIG.leagueId;
-  return Promise.all([dataFile("contracts"), dataFile("holds"), dataFile("cash"), dataFile("teams"), dataFile("players"), dataFile("state"),
+  return Promise.all([dataFile("contracts"), dataFile("holds"), dataFile("cash"), dataFile("teams"), dataFile("players"), dataFile("state"), dataFile("espn").catch(function () { DATA.espn = {}; return {}; }),
     sleeper("/league/" + id), sleeper("/league/" + id + "/rosters"), sleeper("/league/" + id + "/users"), sleeper("/league/" + id + "/traded_picks")])
     .then(function (r) {
-      LIVE = { league: r[6], rosters: r[7], users: r[8], traded: r[9] };
+      LIVE = { league: r[7], rosters: r[8], users: r[9], traded: r[10] };
       return rebuild();
     });
 }
@@ -107,6 +107,21 @@ function moneyLegend() {
   return '<div class="legend mlegend">' + LM.MONEY_KINDS.map(function (m) {
     return m[0] === "fa" ? '<span><span class="fa">UFA</span>' + m[1] + "</span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") + "</div>";
 }
+// ESPN headshot (small, from ESPN's image resizer) for a player name, or initials
+function headshot(name) {
+  var k = LM.norm(plain(name)), list = (DATA.espn || {})[k] || [];
+  var e = list.filter(function (x) { return x.img; })[0];
+  var m = e && /headshots\/nba\/players\/full\/(\d+)\.png/.exec(e.img);
+  return m ? "https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/" + m[1] + ".png&w=96&h=70" : "";
+}
+function initials(name) { return plain(name).split(/\s+/).map(function (w) { return w.charAt(0); }).join("").slice(0, 2).toUpperCase(); }
+function avatar(name) {
+  var url = headshot(name);
+  return url ? '<img class="av" loading="lazy" alt="" src="' + esc(url) + '" data-ini="' + esc(initials(name)) + '">'
+    : '<span class="av">' + esc(initials(name)) + "</span>";
+}
+// player link with a photo in front
+function pwho(name, label) { return '<span class="who">' + avatar(name) + pbtn(name, label) + "</span>"; }
 function book(code) { return S.books[code] || (S.books[code] = LM.teamBook(S.L, code)); }
 function setLeague(L) { S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
 // norm(name) -> { code, slot } for everyone on a fantasy roster
@@ -227,7 +242,7 @@ function pageHome() {
     '<div class="box"><div class="panel-head"><h3>Biggest contracts · ' + esc(L.season) + '</h3><a href="#contracts" data-go="contracts">All contracts →</a></div>' +
     top.slice(0, 6).map(function (c) {
       var r = rosterIdx()[LM.norm(c.n)];
-      return '<div class="list-row"><div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : " · free agent") + "</span></div>" +
+      return '<div class="list-row">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : " · free agent") + "</span></div>" +
         '<div class="num">' + salCell(c, 0) + "</div></div>";
     }).join("") + "</div>";
 
@@ -338,7 +353,7 @@ function pageTeam(code) {
     if (!ps.length) return;
     body += '<tr class="grp"><td colspan="' + cols + '">' + SLOT[slot] + " · " + ps.length + "</td></tr>";
     ps.forEach(function (x) {
-      body += '<tr><td class="name">' + pbtn(x.name) + (x.c ? "" : '<span class="flag bad">No contract</span>') +
+      body += '<tr><td class="name">' + pwho(x.name) + (x.c ? "" : '<span class="flag bad">No contract</span>') +
         (x.c && /pending/i.test(x.c.det) ? '<span class="flag">Pending</span>' : "") + '</td><td class="l muted">' + esc(x.c ? x.c.nba : "") + "</td>" +
         L.seasons.map(function (_, i) { return "<td>" + salCell(x.c, i) + "</td>"; }).join("") +
         '<td class="l muted small">' + esc(x.c ? x.c.det : "") + "</td></tr>";
@@ -347,7 +362,7 @@ function pageTeam(code) {
   if (b.holds.length) {
     body += '<tr class="grp"><td colspan="' + cols + '">Cap holds · ' + b.holds.length + "</td></tr>";
     b.holds.forEach(function (h) {
-      body += '<tr><td class="name">' + pbtn(h.name) + (h.c ? "" : '<span class="flag bad">Not on Master list</span>') +
+      body += '<tr><td class="name">' + pwho(h.name) + (h.c ? "" : '<span class="flag bad">Not on Master list</span>') +
         '</td><td class="l muted">' + esc(h.c ? h.c.nba : "") + "</td>" +
         L.seasons.map(function (_, i) { return "<td>" + salCell(h.c, i) + "</td>"; }).join("") + '<td class="l muted small">' + esc(h.c ? h.c.det : "") + "</td></tr>";
     });
@@ -432,7 +447,7 @@ function plTable() {
   var rows = plFiltered(), L = S.L;
   var shown = rows.slice(0, S.pl.limit);
   var body = shown.map(function (r) {
-    return '<tr><td class="name">' + pbtn(r.n, r.hold ? plain(r.n) : "") + (r.missing ? '<span class="flag bad">No contract</span>' : "") + (r.pending ? '<span class="flag">Pending</span>' : "") +
+    return '<tr><td class="name">' + pwho(r.n, r.hold ? plain(r.n) : "") + (r.missing ? '<span class="flag bad">No contract</span>' : "") + (r.pending ? '<span class="flag">Pending</span>' : "") +
       (r.hold ? '<span class="flag bad">Cap hold</span>' : "") +
       '</td><td class="l muted">' + esc(r.c ? r.c.nba : "") + '</td><td class="l">' + tcode(r.team) + "</td>" +
       L.seasons.map(function (_, i) { var s = salCell(r.c, i); return "<td" + (s ? "" : ' class="dim"') + ">" + (s || "·") + "</td>"; }).join("") + "</tr>";
@@ -481,14 +496,14 @@ function moveOf(type, key, from) {
 }
 // One tradeable thing (player or pick) as a tappable card. Tap to send it; with 3+ teams,
 // the "To" chips under it pick the receiver. Tap again to keep it.
-function assetCard(type, key, from, main, side) {
+function assetCard(type, key, from, pic, main, side) {
   var m = moveOf(type, key, from);
   var others = S.trade.teams.filter(function (c) { return c !== from; });
   var attrs = ' data-type="' + type + '" data-key="' + esc(key) + '" data-from="' + esc(from) + '"';
   var dest = m && others.length > 1 ? '<div class="dests"><span>To</span>' + others.map(function (c) {
     return '<button class="dest tc' + (m.to === c ? " on" : "") + '"' + teamStyle(c) + ' data-act="tradeDest" data-to="' + esc(c) + '"' + attrs + ">" + esc(c) + "</button>"; }).join("") + "</div>" : "";
   return '<div class="asset' + (m ? " moving" : "") + '"' + (m ? teamStyle(m.to) : "") + '>' +
-    '<button class="asset-main" data-act="tradeAsset"' + attrs + ' aria-pressed="' + !!m + '"><span class="tick">' + (m ? "✓" : "+") + "</span>" +
+    '<button class="asset-main" data-act="tradeAsset"' + attrs + ' aria-pressed="' + !!m + '">' + (pic ? '<span class="pic">' + pic + (m ? '<b class="chk">✓</b>' : "") + "</span>" : '<span class="tick">' + (m ? "✓" : "+") + "</span>") +
     '<span class="nm">' + main + "</span>" + (side ? '<span class="sal">' + side + "</span>" : "") +
     (m && others.length < 2 ? '<span class="to">→ ' + esc(m.to) + "</span>" : "") + "</button>" +
     (type === "player" ? '<button class="info plink" data-player="' + esc(key) + '" title="Player card" aria-label="Player card">i</button>' : "") + "</div>" + dest;
@@ -497,10 +512,10 @@ function tradeTeamBox(code) {
   var b = book(code), L = S.L;
   var players = b.players.slice().sort(function (x, y) { return (y.sal[0] || 0) - (x.sal[0] || 0); });
   var pl = players.map(function (x) {
-    return assetCard("player", x.name, code, esc(x.name) + "<small>" + esc(x.c ? x.c.nba : "") + " · " + esc(SLOT[x.slot] || "") + "</small>",
+    return assetCard("player", x.name, code, avatar(x.name), esc(x.name) + "<small>" + esc(x.c ? x.c.nba : "") + " · " + esc(SLOT[x.slot] || "") + "</small>",
       x.c ? salCell(x.c, 0) : '<span class="flag bad">No contract</span>');
   }).join("");
-  var pk = (L.picks[code] || []).map(function (p) { return assetCard("pick", p.label, code, esc(p.label)); }).join("");
+  var pk = (L.picks[code] || []).map(function (p) { return assetCard("pick", p.label, code, "", esc(p.label)); }).join("");
   var cash = S.trade.moves.filter(function (m) { return m.type === "cash" && m.from === code; }).map(function (m) {
     return '<div class="asset moving"' + teamStyle(m.to) + '><div class="asset-main"><span class="tick">$</span><span class="nm">' + money(m.amt) + "M cash</span>" +
       '<span class="to">→ ' + esc(m.to) + '</span></div><button class="info" data-act="rmCash" data-from="' + esc(code) + '" data-to="' + esc(m.to) + '" data-amt="' + m.amt + '" title="Remove" aria-label="Remove cash">×</button></div>';
@@ -955,6 +970,14 @@ document.addEventListener("submit", function (ev) {
   busy(btn, Admin.signIn($("pass").value).then(function (who) { toast("Signed in as " + who); rerender(); },
     function (e) { $("loginMsg").textContent = e.message; }));
 });
+
+// A headshot that fails to load becomes initials
+document.addEventListener("error", function (ev) {
+  var t = ev.target;
+  if (t && t.tagName === "IMG" && t.classList.contains("av")) {
+    var sp = document.createElement("span"); sp.className = "av"; sp.textContent = t.getAttribute("data-ini") || ""; t.replaceWith(sp);
+  }
+}, true);
 
 // Hover tooltips for chart marks (data-tip)
 (function () {

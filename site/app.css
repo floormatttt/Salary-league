@@ -444,3 +444,19 @@
   .cashrow input[type=number] { width: 84px; }
   @media (max-width: 1140px) and (min-width: 761px) { .dl span { display: none; } .dl { padding: 7px 9px; } .nav a { padding: 0 10px; } .top-in { gap: 16px; } }
   .tbox-head .muted.small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+  /* ================= player photos (ESPN headshots) ================= */
+  .av { width: 30px; height: 30px; flex: none; border-radius: 50%; object-fit: cover; object-position: 50% 8%; display: inline-grid; place-items: center;
+    background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-size: 10.5px; font-weight: 750; color: var(--muted); letter-spacing: .02em; }
+  img.av { box-shadow: 0 0 0 1px var(--line); }
+  .who { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; vertical-align: middle; }
+  .who .plink { overflow: hidden; text-overflow: ellipsis; }
+  td.name { padding-top: 6px; padding-bottom: 6px; }
+  .list-row .av { width: 38px; height: 38px; }
+  .asset-main .av { width: 34px; height: 34px; }
+  @media (max-width: 640px) { .av { width: 26px; height: 26px; } .who { gap: 8px; } }
+  .pic { position: relative; flex: none; display: inline-flex; }
+  .asset-main:hover .pic .av { box-shadow: 0 0 0 2px var(--accent); }
+  .asset.moving .pic .av { box-shadow: 0 0 0 2px var(--c1); }
+  .chk { position: absolute; right: -4px; bottom: -3px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 10px; background: var(--c1); color: #fff; box-shadow: 0 0 0 2px var(--card); }
