@@ -812,3 +812,22 @@
   /* let the team switcher menu escape the banner */
   .team-banner { overflow: visible; z-index: 5; }
   .team-banner::after { border-radius: 0 0 18px 18px; }
+
+  /* no explanatory helper lines */
+  p.muted { display: none; }
+  p.info { color: var(--muted); }
+
+  /* player picker (photos in the suggestions) */
+  .pp { position: relative; }
+  .pp .search input { width: 100%; }
+  .pp-menu { position: absolute; z-index: 45; top: calc(100% + 6px); left: 0; right: 0; min-width: 300px; max-height: 360px; overflow-y: auto; padding: 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-lg); }
+  .pp-menu[hidden] { display: none; }
+  .pp-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left; font: inherit; color: var(--text); }
+  .pp-opt:hover, .pp-opt:focus-visible { background: var(--chip); outline: none; }
+  .pp-opt .av { width: 34px; height: 34px; }
+  .pp-opt .nm { flex: 1; min-width: 0; }
+  .pp-opt .nm b { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pp-opt .nm .small { display: block; }
+  .pp-opt .num { flex: none; }
+  .toolbar .grow { flex: 1 1 260px; }

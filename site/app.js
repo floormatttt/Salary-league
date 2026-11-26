@@ -242,8 +242,7 @@ function salCell(c, i) {
 }
 function moneyLegend() {
   return '<div class="legend mlegend">' + LM.MONEY_KINDS.map(function (m) {
-    return m[0] === "ufa" || m[0] === "rfa" ? '<span><span class="fa m-' + m[0] + '">' + m[1] + "</span></span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") +
-    '<span class="muted">Plain amounts are guaranteed</span></div>';
+    return m[0] === "ufa" || m[0] === "rfa" ? '<span><span class="fa m-' + m[0] + '">' + m[1] + "</span></span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") + "</div>";
 }
 // ESPN headshot (small, from ESPN's image resizer) for a player name, or initials
 function headshot(name) {
@@ -594,7 +593,7 @@ function plTable() {
   return '<div class="tbl"><table><tr>' + sortTh("n", "Player") + sortTh("nba", "NBA", 1) + sortTh("team", "Team", 1) +
     L.seasons.map(function (s, i) { return sortTh("s" + i, esc(s)); }).join("") + "</tr>" +
     (body || '<tr><td colspan="10" class="empty">Nobody matches.</td></tr>') + "</table></div>" +
-    '<div class="muted small" style="margin:8px 2px 0">Showing ' + shown.length + " of " + rows.length + " · tap a column to sort · tap a name for the player card</div>" +
+    '<div class="muted small" style="margin:8px 2px 0">Showing ' + shown.length + " of " + rows.length + "</div>" +
     (rows.length > shown.length ? '<button class="more" data-act="plMore">Show ' + Math.min(150, rows.length - shown.length) + " more</button>" : "");
 }
 function pageContracts() {
@@ -809,7 +808,7 @@ function logList() {
   var extBox = ext.length ? '<details class="box booked"' + (f.type === "Extension" || f.type === "Restructure" ? " open" : "") + "><summary>" +
     (nExt ? '<span class="badge Ext">Extensions</span>' : "") + (nRest ? '<span class="badge Rest">Restructures</span>' : "") + "<b>" +
     [nExt ? nExt + " extension" + (nExt === 1 ? "" : "s") : "", nRest ? nRest + " restructure" + (nRest === 1 ? "" : "s") : ""].filter(Boolean).join(" and ") +
-    ' on the books</b><span class="muted small">done before tracking began</span></summary><div class="booked-list">' +
+    ' on the books</b></summary><div class="booked-list">' +
     ext.map(function (x) {
       var c = x.c, i0 = c.sal.findIndex(function (v, i) { return i > 0 && typeof v === "number"; });
       return '<div class="list-row">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.det) + "</span></div>" + tcode(x.code) +
@@ -913,6 +912,45 @@ function field(label, inner, wide) { return '<div class="f' + (wide ? " wide" : 
 function panel(title, inner, extra) {
   return '<section class="box apanel"><div class="panel-head"><h3>' + esc(title) + "</h3>" + (extra || "") + "</div>" + inner + "</section>";
 }
+/* Player picker: a text box whose suggestions show the player's photo, NBA team, league team and salary.
+ * key: the field name read by val(key); picking runs ppPicked(key, contract). */
+function playerPicker(key, value, placeholder) {
+  return '<div class="pp"><div class="search"><input type="text" class="pp-in" id="pp-' + esc(key) + '" data-k="' + esc(key) + '" value="' + esc(value || "") +
+    '" placeholder="' + esc(placeholder || "Search a player") + '" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list"></div>' +
+    '<div class="pp-menu" role="listbox" hidden></div></div>';
+}
+function ppMatches(q) {
+  q = String(q || "").trim();
+  var qn = LM.norm(q), up = q.toUpperCase();
+  var list = S.L.contracts.filter(function (c) { return !c.hold && (!q || LM.norm(c.n).indexOf(qn) >= 0 || c.nba === up); });
+  list.sort(function (a, b) {
+    var sa = LM.norm(a.n).indexOf(qn) === 0 ? 0 : 1, sb = LM.norm(b.n).indexOf(qn) === 0 ? 0 : 1;
+    return sa - sb || ((typeof b.sal[0] === "number" ? b.sal[0] : 0) - (typeof a.sal[0] === "number" ? a.sal[0] : 0));
+  });
+  return list.slice(0, 30);
+}
+function ppRender(input) {
+  var menu = input.closest(".pp").querySelector(".pp-menu"), idx = rosterIdx();
+  var list = ppMatches(input.value);
+  menu.innerHTML = list.length ? list.map(function (c) {
+    var r = idx[LM.norm(c.n)];
+    return '<button type="button" class="pp-opt" role="option" data-act="ppPick" data-id="' + c.id + '">' + avatar(c.n) +
+      '<span class="nm"><b>' + esc(c.n) + '</b><span class="muted small">' + esc(c.nba) + " · " + (r ? esc(teamName(r.code)) : "free agent") + "</span></span>" +
+      (r ? '<span class="tcode tc"' + teamStyle(r.code) + ">" + esc(r.code) + "</span>" : "") + '<span class="num">' + (salCell(c, 0) || "") + "</span></button>";
+  }).join("") : '<div class="empty" style="padding:12px">No player matches.</div>';
+  menu.hidden = false; input.setAttribute("aria-expanded", "true");
+}
+function ppClose(except) {
+  Array.prototype.forEach.call(document.querySelectorAll(".pp-menu"), function (m) {
+    if (except && m.closest(".pp") === except) return;
+    m.hidden = true; var i = m.closest(".pp").querySelector(".pp-in"); if (i) i.setAttribute("aria-expanded", "false");
+  });
+}
+// after a pick
+function ppPicked(key, c) {
+  if (key === "extName") refreshExt();
+  else if (key === "rsName") { S.admin.edit = editable(c, "restructure"); rerender(); var ed = $("editor"); if (ed) window.scrollTo(0, ed.offsetTop - 70); }
+}
 function contractByName(name) {
   var k = LM.norm(plain(name || ""));
   return k ? S.L.contracts.filter(function (c) { return !c.hold && LM.norm(c.n) === k; })[0] : null;
@@ -947,7 +985,7 @@ function pageAdmin() {
                 ranks: adminRanks, sync: adminSync })[A.tab]();
   var title = ADMIN_TABS.filter(function (t) { return t[0] === A.tab; })[0][1];
   return '<div class="admin">' + nav + '<div class="admin-main"><div class="admin-head"><div class="eyebrow">Commissioner</div><h1>' + esc(title) + "</h1></div>" +
-    (A.edit ? contractEditor(A.edit) : "") + body + "</div></div>" + activeNames();
+    (A.edit ? contractEditor(A.edit) : "") + body + "</div></div>";
 }
 
 // Contract type buttons, colored like the money tags (Guaranteed / PO / TO / Max / Supermax / Cap hold)
@@ -1012,9 +1050,8 @@ function adminPending() {
 }
 function adminContracts() {
   var q = S.admin.q.trim();
-  return panel("Restructure a contract", '<div class="toolbar"><div class="search"><input type="search" id="cq" placeholder="Player or NBA team (e.g. LAL)" value="' + esc(q) + '" aria-label="Find a contract"></div>' +
-    '<button class="btn pri" data-act="newContract">+ New contract</button></div><div id="cList">' +
-    (q ? contractList(contractSearch(q), "restructure") : '<div class="empty">Search for a player to restructure his contract.</div>') + "</div>");
+  return panel("Restructure a contract", '<div class="toolbar"><div class="grow">' + playerPicker("rsName", "", "Search a player to restructure") + "</div>" +
+    '<button class="btn" data-act="newContract">+ New contract</button></div>');
 }
 // ---- extensions
 function extState() {
@@ -1034,13 +1071,13 @@ function extPreview() {
   var row = function (label, x) { return "<tr><td>" + label + "</td>" + L.seasons.map(function (_, i) { var v = salCell(x, i); return "<td" + (v ? "" : ' class="dim"') + ">" + (v || "·") + "</td>"; }).join("") + "</tr>"; };
   return '<div class="ed-who">' + avatar(c.n) + "<div><b>" + esc(c.n) + '</b><span class="muted small">' + esc(c.nba) + (c.det ? " · " + esc(c.det) : "") + "</span></div></div>" +
     '<div class="tbl"><table><tr><th></th>' + L.seasons.map(function (x) { return "<th>" + esc(x) + "</th>"; }).join("") + "</tr>" + row("Now", c) +
-    (after ? row("<b>After</b>", after) : "") + "</table></div>" + (err ? '<p class="muted small">' + esc(err) + "</p>" : "");
+    (after ? row("<b>After</b>", after) : "") + "</table></div>" + (err ? '<p class="err small">' + esc(err) + "</p>" : "");
 }
 function adminExtend() {
   var E = extState(), L = S.L, c = contractByName(E.name);
   var fa = c ? Mutations.faYear(c) : null;
   return panel("Extend a contract",
-    '<div class="form2">' + field("Player", '<input type="text" list="activeNames" id="extName" data-k="extName" value="' + esc(E.name) + '" placeholder="Name on the contracts list">', true) +
+    '<div class="form2">' + field("Player", playerPicker("extName", E.name, "Search a player"), true) +
     field("Starts", '<div class="fa-start" id="extStartShow">' + (c ? fa != null ? '<span class="fa m-ufa">' + esc(L.seasons[fa]) + "</span> his free-agency year" : '<span class="muted">No free-agency year to extend into</span>' : '<span class="muted">His free-agency year</span>') + "</div>") +
     field("Years", fieldDD("extYears", E.years, plainItems([[1, "1 year"], [2, "2 years"], [3, "3 years"], [4, "4 years"], [5, "5 years"]]), "Years")) +
     field("Salary per year ($M)", '<input type="number" min="0.5" step="0.1" inputmode="decimal" id="extAmt" data-k="extAmt" value="' + esc(E.amt) + '" placeholder="e.g. 25">') +
@@ -1075,7 +1112,7 @@ function adminHolds() {
       (groups[code].length === 1 ? "" : "s") + " · " + money(total) + "M this season</span></div>" + rows + "</div>";
   }).join("");
   return panel("Make a player a cap hold",
-      '<div class="form2">' + field("Player", '<input type="text" list="activeNames" data-k="holdName" placeholder="Name on the contracts list">', true) +
+      '<div class="form2">' + field("Player", playerPicker("holdName", "", "Search a player"), true) +
       field("Team that carries it", fieldDD("holdCode", "", teamItems("Pick a team"), "Team that carries it")) + "</div>" +
       '<div class="actions"><button class="btn pri" data-act="addHold">Add cap hold</button></div>' +
       '<p class="muted small">Renames his contract to “(cap hold)” and puts it on that team. Removing a hold keeps the contract row; delete that under Contracts if it\'s gone for good.</p>') +
@@ -1085,7 +1122,7 @@ function adminWaive() {
   var w = S.admin.waive || {};
   return panel("Waived & re-signed",
     '<p class="muted small" style="margin-top:0">His old contract becomes a cap hold on the team that waived him, and he gets a new $2.0M / 1-year minimum (then UFA) in his NBA team\'s group.</p>' +
-    '<div class="form2">' + field("Player", '<input type="text" list="activeNames" data-k="waiveName" value="' + esc(w.name || "") + '" placeholder="Name on the contracts list">', true) +
+    '<div class="form2">' + field("Player", playerPicker("waiveName", w.name || "", "Search a player"), true) +
     field("Team that waived him", fieldDD("waiveCode", w.code || "", teamItems("Pick a team"), "Team that waived him")) + "</div>" +
     '<div class="actions"><button class="btn pri" data-act="waive">Convert</button></div>' + (w.msg ? '<p class="ok">' + esc(w.msg) + "</p>" : ""));
 }
@@ -1178,6 +1215,13 @@ document.addEventListener("click", function (ev) {
     return;
   }
   if (!(t.closest && t.closest(".dd"))) closeMenus();
+  var pick = t.closest && t.closest("[data-act=ppPick]");
+  if (pick) {
+    var pp = pick.closest(".pp"), inp = pp.querySelector(".pp-in"), pc = S.L.contracts.filter(function (x) { return x.id === Number(pick.getAttribute("data-id")); })[0];
+    if (pc) { inp.value = pc.n; ppClose(); ppPicked(inp.getAttribute("data-k"), pc); }
+    return;
+  }
+  ppClose(t.closest && t.closest(".pp"));
   var th = t.closest && t.closest("th[data-act=plSort]");
   if (th) {
     var k = th.getAttribute("data-k");
@@ -1318,8 +1362,10 @@ document.addEventListener("change", function (ev) {
 });
 
 var inputTimer = null;
+document.addEventListener("focusin", function (ev) { if (ev.target.classList && ev.target.classList.contains("pp-in")) ppRender(ev.target); });
 document.addEventListener("input", function (ev) {
   var t = ev.target;
+  if (t.classList && t.classList.contains("pp-in")) ppRender(t);
   if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
   else if (t.id === "extName" || t.id === "extAmt") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
     refreshExt(); }, 150); }
@@ -1360,6 +1406,22 @@ document.addEventListener("error", function (ev) {
 document.addEventListener("keydown", function (ev) {
   if (ev.key === "Escape" && document.querySelector(".dd.open")) { var d = document.querySelector(".dd.open"); closeMenus(); d.querySelector(".dd-btn").focus(); return; }
   if (ev.key === "Escape" && $("modal").classList.contains("open")) closePlayer();
+  // player picker: arrows move into / through the suggestions, Escape closes them
+  var ppIn = document.activeElement && document.activeElement.closest && document.activeElement.closest(".pp");
+  if (ppIn) {
+    var pm = ppIn.querySelector(".pp-menu");
+    if (ev.key === "Escape") { ppClose(); ppIn.querySelector(".pp-in").focus(); return; }
+    if (!pm.hidden && (ev.key === "ArrowDown" || ev.key === "ArrowUp")) {
+      var po = Array.prototype.slice.call(pm.querySelectorAll(".pp-opt")), pi = po.indexOf(document.activeElement);
+      var nx = ev.key === "ArrowDown" ? po[Math.min(po.length - 1, pi + 1)] : pi <= 0 ? ppIn.querySelector(".pp-in") : po[pi - 1];
+      if (nx) { nx.focus(); ev.preventDefault(); }
+      return;
+    }
+    if (ev.key === "Enter" && document.activeElement.classList.contains("pp-in") && !pm.hidden) {
+      var first = pm.querySelector(".pp-opt"); if (first) { first.click(); ev.preventDefault(); }
+      return;
+    }
+  }
   // arrow keys move through an open menu
   var menu = document.querySelector(".dd.open .dd-menu");
   if (menu && (ev.key === "ArrowDown" || ev.key === "ArrowUp")) {

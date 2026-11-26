@@ -100,7 +100,7 @@ var Card = (function () {
       return box((k.hold ? "Cap hold" : "Contract") + (k.team ? " · " + k.team : ""),
         summary + '<div class="tbl"><table><tr><th>Season</th><th>Salary</th><th>Status</th></tr>' + rows + "</table></div>" +
         (k.details ? '<p class="small"><b>Details:</b> ' + esc(k.details) + "</p>" : "") +
-        (k.hold ? "" : '<p class="muted small">On ' + esc(k.onRoster) + " league roster" + (k.onRoster === "1" ? "" : "s") + "</p>"));
+        (k.hold ? "" : '<p class="small info">On ' + esc(k.onRoster) + " league roster" + (k.onRoster === "1" ? "" : "s") + "</p>"));
     }).join("");
   }
 
