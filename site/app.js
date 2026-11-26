@@ -115,7 +115,7 @@ function teamItems(blank) {
       html: '<span class="tcode tc"' + teamStyle(t.code) + ">" + esc(t.code) + '</span><span class="dd-name">' + esc(t.name) + "</span>" +
         '<span class="dd-dot t-' + tier.key + '" title="' + esc(tier.label) + '"></span>' };
   });
-  return blank != null ? [{ v: "", cls: "all-opt", html: '<span class="dd-all">All</span><span class="dd-name">' + esc(blank) + "</span>" }].concat(list) : list;
+  return blank != null ? [{ v: "", cls: "all-opt", html: '<span class="dd-name">' + esc(blank) + "</span>" }].concat(list) : list;
 }
 function onPick(act, v) {
   if (act === "pickTeam") Nav.go("team/" + v);
@@ -706,7 +706,7 @@ function pageLog() {
   return '<div class="pagehead"><div><h1>Transactions</h1><div class="sub">League Log, newest first' + (S.log.lastSync ? " · last synced " + esc(S.log.lastSync) : "") + "</div></div></div>" +
     '<div class="row start">' + dropdown("logTeam", S.lg.team, teamItems("All teams"), "Team") +
     dropdown("logType", S.lg.type, types.map(function (t) {
-      return { v: t[0], cls: "type-opt", html: t[0] ? '<span class="badge ' + logKind(t[0]) + '">' + esc(t[1]) + "</span>" : '<span class="dd-all">All</span><span class="dd-name">' + esc(t[1]) + "</span>" };
+      return { v: t[0], cls: "type-opt", html: t[0] ? '<span class="badge ' + logKind(t[0]) + '">' + esc(t[1]) + "</span>" : '<span class="dd-name">' + esc(t[1]) + "</span>" };
     }), "Type") + "</div>" +
     '<div id="logList">' + logList() + "</div>";
 }
