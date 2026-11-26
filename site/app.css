@@ -560,3 +560,24 @@
   .nav a.on::after { height: 2px; left: 12px; right: 12px; }
   .dl { border-radius: 999px; font-weight: 500; }
   .hero { border-radius: 22px; }
+
+  /* thicker type: DM Serif Display for display, Geist one step heavier */
+  :root { --serif: "DM Serif Display", "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
+  html, body { font-weight: 500; }
+  b, strong { font-weight: 700; }
+  h1 { font-size: 36px; letter-spacing: -.015em; }
+  .hero h1 { font-size: 44px; }
+  .brand { font-size: 20px; }
+  .kpi .v { font-size: 31px; }
+  .team-hero .big { font-size: 42px; }
+  .nav a { font-weight: 600; }
+  .nav a.on { font-weight: 700; }
+  .eyebrow, .box > h3, h3.sec, h2.sec, .panel-head h3, th, tr.grp td { font-weight: 700; }
+  .plink, .asset-main .nm, a.team, .tm a.team { font-weight: 600; }
+  .btn, .dl, .seg button, .chip, .mny, .tier, .badge, .tname, .tcode { font-weight: 600; }
+  .seg button.on { font-weight: 700; }
+  .mny.m-g { font-weight: 550; }
+  .stat b { font-weight: 700; }
+  td { font-weight: 500; }
+  .muted, .small, .sub, .kpi .k, .stat span { font-weight: 500; }
+  @media (max-width: 640px) { h1 { font-size: 30px; } .hero h1 { font-size: 34px; } .kpi .v { font-size: 26px; } }
