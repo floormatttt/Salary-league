@@ -831,3 +831,26 @@
   .pp-opt .nm .small { display: block; }
   .pp-opt .num { flex: none; }
   .toolbar .grow { flex: 1 1 260px; }
+
+  /* cash: every team with add / take */
+  .cash-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .cash-tools .dd-field { width: 150px; }
+  .cash-tools .dd, .cash-tools .dd-btn { width: 100%; }
+  .cash-tools .btn.danger { margin-left: auto; }
+  .cashlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 0 18px; }
+  .cashrow2 { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-bottom: 1px solid var(--line-2); }
+  .cashrow2 .swatch { height: 34px; margin-right: 2px; }
+  .cashrow2 .nm { flex: 1; min-width: 0; }
+  .cashrow2 .nm b { display: block; font-size: 14px; }
+  .cashrow2 input { width: 74px; padding: 6px 8px; font-size: 14px; }
+  .cashrow2.over { background: color-mix(in srgb, var(--bad) 6%, transparent); }
+  .cb { font-size: 12px; font-weight: 700; }
+  .cb.sent { color: var(--bad); } .cb.got { color: var(--good); } .cb.even { color: var(--faint); }
+  .btn.cash-add { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+  .btn.cash-add:hover { background: color-mix(in srgb, var(--good) 12%, var(--card)); }
+  .btn.cash-take { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+  .btn.cash-take:hover { background: color-mix(in srgb, var(--bad) 10%, var(--card)); }
+  details.ledger { padding: 0; }
+  details.ledger summary { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; }
+  details.ledger .tbl { margin: 0 12px 12px; }
+  @media (max-width: 520px) { .cashlist { grid-template-columns: 1fr; } .cashrow2 { flex-wrap: wrap; } .cashrow2 .nm { flex-basis: 60%; } }

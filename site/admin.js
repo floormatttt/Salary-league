@@ -96,7 +96,7 @@ var Admin = (function () {
   }
 
   var LABELS = { saveContract: "Contract", deleteContract: "Delete contract", addHold: "Add cap hold", removeHold: "Remove cap hold",
-    waiveResign: "Waived & re-signed", recordCash: "Cash", deleteCash: "Delete cash row", setRanks: "Power rankings", extend: "Extension", restructure: "Restructure" };
+    waiveResign: "Waived & re-signed", recordCash: "Cash", deleteCash: "Delete cash row", setRanks: "Power rankings", extend: "Extension", restructure: "Restructure", adjustCash: "Cash", resetCash: "Reset cash" };
 
   // Starts the sync workflow now instead of waiting for the next 5-minute run
   function runSync() {

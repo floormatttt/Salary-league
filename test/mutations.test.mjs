@@ -114,3 +114,28 @@ test("rankings", () => {
   assert.match(r.log, /Toronto 2→1/);
   assert.equal(league(D).teams[0].code, "TOR");
 });
+
+describe("cash adjustments", () => {
+  test("add / take money from one team, within the limit unless overridden", () => {
+    const D = freshData();
+    const bal = code => MU.cashBalance(D, code, "2026-27");
+    const sac0 = bal("SAC");
+    MU.adjustCash(D, { code: "SAC", season: "2026-27", amt: 3, dir: "add" });
+    assert.equal(bal("SAC"), Math.round((sac0 - 3) * 10) / 10, "adding money lowers the balance (payroll)");
+    MU.adjustCash(D, { code: "SAC", season: "2026-27", amt: 1.5, dir: "take" });
+    assert.equal(bal("SAC"), Math.round((sac0 - 1.5) * 10) / 10);
+    assert.throws(() => MU.adjustCash(D, { code: "SAC", season: "2026-27", amt: 50, dir: "take" }), /limit ±\$10M/);
+    MU.adjustCash(D, { code: "SAC", season: "2026-27", amt: 50, dir: "take", override: true });
+    assert.throws(() => MU.adjustCash(D, { code: "SAC", season: "2026-27", amt: 0, dir: "add" }), /more than \$0/);
+  });
+
+  test("reset puts every team at $0.0 for that season and keeps the history", () => {
+    const D = freshData();
+    const rows = D.cash.length;
+    const res = MU.resetCash(D, { season: "2026-27" });
+    assert.match(res.log, /reset cash to \$0\.0 for \d+ teams/);
+    assert.ok(D.cash.length > rows, "offsetting rows were added, nothing deleted");
+    MU.TEAM_CODES.forEach(code => assert.equal(MU.cashBalance(D, code, "2026-27"), 0, code));
+    assert.throws(() => MU.resetCash(D, { season: "2026-27" }), /already at \$0\.0/);
+  });
+});

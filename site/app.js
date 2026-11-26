@@ -1131,25 +1131,26 @@ function adminCash() {
   var L = S.L, A = S.admin, season = A.cashSeason || L.season;
   var bal = {};
   L.cash.forEach(function (x) { if (x.season === season) bal[x.code] = LM.r1((bal[x.code] || 0) + x.amt); });
-  var cards = Object.keys(bal).filter(function (k) { return bal[k]; }).sort(function (a, b) { return bal[b] - bal[a]; }).map(function (k) {
-    var over = Math.abs(bal[k]) > L.limits.cash;
-    return '<div class="bal' + (over ? " over" : "") + '"' + teamStyle(k) + ">" + tcode(k) + '<b class="' + cls(bal[k]) + '">' + signed(bal[k]) + '</b><span class="muted small">' +
-      (bal[k] > 0 ? "sent" : "received") + "</span></div>"; }).join("");
+  var any = Object.keys(bal).some(function (k) { return bal[k]; });
+  var teams = L.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (t) {
+    var v = bal[t.code] || 0, over = Math.abs(v) > L.limits.cash;
+    var state = v > 0 ? '<span class="cb sent">Sent ' + money(v) + "</span>" : v < 0 ? '<span class="cb got">Received ' + money(-v) + "</span>" : '<span class="cb even">$0.0</span>';
+    return '<div class="cashrow2' + (over ? " over" : "") + '"' + teamStyle(t.code) + ">" + swatch(t.code) + '<div class="nm"><b>' + esc(t.name) + "</b>" + state + "</div>" +
+      '<input type="number" min="0.5" step="0.5" inputmode="decimal" placeholder="$M" data-cash-amt="' + esc(t.code) + '" aria-label="Amount for ' + esc(t.name) + '">' +
+      '<button class="btn sm cash-add" data-act="cashAdj" data-dir="add" data-code="' + esc(t.code) + '" title="Team gets cash (payroll goes down)">+ Add</button>' +
+      '<button class="btn sm cash-take" data-act="cashAdj" data-dir="take" data-code="' + esc(t.code) + '" title="Team pays cash (payroll goes up)">− Take</button></div>';
+  }).join("");
   var rows = L.cash.slice().reverse().map(function (x) {
     return "<tr><td>" + tcode(x.code) + '</td><td class="l muted">' + esc(String(x.date || "").slice(0, 10)) + '</td><td class="l">' + esc(x.season) + '</td><td class="' + cls(x.amt) + '"><b>' + signed(x.amt) +
       '</b></td><td class="l small">' + esc(x.note) + (x.ref ? ' <span class="muted">' + esc(x.ref) + "</span>" : "") + "</td><td>" +
       '<button class="btn sm danger" data-act="rmCashRow" data-id="' + x.id + '" data-confirm="Tap again">Delete</button></td></tr>';
   }).join("");
-  return panel("Record a cash transfer",
-      '<div class="form2">' + field("From (sends)", fieldDD("cashFrom", "", teamItems("Pick a team"), "From")) +
-      field("To (receives)", fieldDD("cashToTeam", "", teamItems("Pick a team"), "To")) +
-      field("Amount ($M)", '<input type="number" min="0.5" step="0.5" inputmode="decimal" data-k="cashAmt" placeholder="e.g. 3">') +
-      field("Season", fieldDD("cashSeason", season, plainItems(L.seasons.map(function (x) { return [x, x]; })), "Season")) +
-      field("Note", '<input type="text" data-k="cashNote" placeholder="e.g. trade with Utah">', true) + "</div>" +
-      '<div class="actions"><button class="btn pri" data-act="recordCash">Record</button><label class="check"><input type="checkbox" data-k="cashOverride"> Override the ±$' + L.limits.cash + "M limit</label></div>" +
-      '<p class="muted small">Adds two ledger rows: +amount for the sender (adds to its payroll) and −amount for the receiver.</p>') +
-    panel("Balances · " + season, cards ? '<div class="bals">' + cards + "</div>" : '<div class="empty">Every team is at $0.0.</div>') +
-    panel("Cash ledger", '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div>");
+  var head = '<div class="cash-tools">' + fieldDD("cashSeason", season, plainItems(L.seasons.map(function (x) { return [x, x]; })), "Season") +
+    '<label class="check"><input type="checkbox" data-k="cashOverride"> Override ±$' + L.limits.cash + "M</label>" +
+    (any ? '<button class="btn danger" data-act="resetCash" data-confirm="Tap again to reset all">Reset cash</button>' : "") + "</div>";
+  return panel("Team cash · " + season, head + '<div class="cashlist">' + teams + "</div>") +
+    '<details class="box ledger"><summary><b>Cash ledger</b><span class="muted small">' + L.cash.length + " rows</span></summary>" +
+    '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div></details>";
 }
 function adminRanks() {
   var pos = {}; LM.standings(S.L.teams).forEach(function (t, i) { pos[t.code] = i + 1; });
@@ -1338,6 +1339,15 @@ document.addEventListener("click", function (ev) {
       A.cashSeason = val("cashSeason");
       busy(b, adminCall([["recordCash", { season: val("cashSeason"), from: val("cashFrom"), to: val("cashToTeam"), amt: Number(val("cashAmt")),
         note: val("cashNote"), override: val("cashOverride") }]], "Cash recorded").then(rerender));
+      break;
+    case "cashAdj":
+      var cc = b.getAttribute("data-code"), camt = Number((view().querySelector('[data-cash-amt="' + cc + '"]') || {}).value);
+      if (!(camt > 0)) { toast("Enter an amount in $M first", true); break; }
+      busy(b, adminCall([["adjustCash", { code: cc, season: A.cashSeason || S.L.season, amt: camt, dir: b.getAttribute("data-dir"), override: val("cashOverride") }]],
+        function (r) { return r.logs[0]; }).then(rerender));
+      break;
+    case "resetCash":
+      busy(b, adminCall([["resetCash", { season: A.cashSeason || S.L.season }]], function (r) { return r.logs[0]; }).then(rerender));
       break;
     case "rmCashRow":
       busy(b, adminCall([["deleteCash", { id: Number(b.getAttribute("data-id")) }]], "Ledger row deleted").then(rerender));
