@@ -76,10 +76,10 @@ const trade = enc({ t: ["ATL", "BOS", "MIA"], m: [["p", pl("ATL", 0), "ATL", "BO
 const SHOTS = [
   ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["trade", "#" + trade], ["trade-empty", "#trade"],
   ["log", "#log"], ["rules", "#rules"], ["admin-login", "#admin"],
-  ["admin-pending", "#admin", { admin: true }], ["admin-holds", "#admin", { admin: true, tab: "Cap holds" }],
-  ["admin-cash", "#admin", { admin: true, tab: "Cash" }], ["admin-waive", "#admin", { admin: true, tab: "Waived & re-signed" }],
-  ["admin-ranks", "#admin", { admin: true, tab: "Rankings" }], ["admin-sync", "#admin", { admin: true, tab: "Sync & log" }],
-  ["admin-contract", "#admin", { admin: true, tab: "Pending", click: "Edit" }],
+  ["admin-pending", "#admin", { admin: true }], ["admin-holds", "#admin", { admin: true, tab: "holds" }],
+  ["admin-cash", "#admin", { admin: true, tab: "cash" }], ["admin-waive", "#admin", { admin: true, tab: "waive" }],
+  ["admin-ranks", "#admin", { admin: true, tab: "ranks" }], ["admin-extend", "#admin", { admin: true, tab: "extend" }], ["admin-sync", "#admin", { admin: true, tab: "sync" }],
+  ["admin-contract", "#admin", { admin: true, tab: "pending", click: "Edit" }],
   ["card", "?n=Jalen%20Johnson", { viewport: true }],
 ];
 const only = process.argv[2] ? new RegExp(process.argv[2]) : null;
@@ -105,7 +105,7 @@ for (const dark of [false, true]) {
         if (admin) { localStorage.setItem("slToken", "t"); localStorage.setItem("slWho", "floormatttt"); } else localStorage.clear();
       }, !!o.admin);
       await p.goto(SITE + suffix, { waitUntil: "networkidle0" });
-      if (o.tab) await clickText(p, "button[data-act=adminTab]", o.tab);
+      if (o.tab) { await p.evaluate(v => { const b = document.querySelector('button[data-act=adminTab][data-v="' + v + '"]'); if (b) b.click(); }, o.tab); await new Promise(r => setTimeout(r, 300)); }
       if (o.click) await clickText(p, "button", o.click);
       await new Promise(r => setTimeout(r, 300));
       const overflow = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

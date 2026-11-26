@@ -694,3 +694,100 @@
   tr.lotto > td { background: color-mix(in srgb, var(--accent) 3%, var(--card)); }
   td.odds span { display: inline-block; min-width: 58px; padding: 2px 8px; border-radius: 999px; font-weight: 800; text-align: right;
     color: var(--accent-2); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent) var(--w), color-mix(in srgb, var(--accent) 6%, transparent) var(--w)); }
+
+  /* ================= transactions: cap holds + extensions ================= */
+  .badge.Hold { background: color-mix(in srgb, var(--m-hold) 16%, transparent); color: var(--m-hold); }
+  .badge.Ext { background: color-mix(in srgb, var(--m-smax) 15%, transparent); color: var(--m-smax); }
+  details.booked { padding: 0; margin-bottom: 12px; }
+  details.booked summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; cursor: pointer; list-style: none; }
+  details.booked summary::-webkit-details-marker { display: none; }
+  details.booked summary::after { content: "Show"; margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--link); }
+  details.booked[open] summary::after { content: "Hide"; }
+  .booked-list { padding: 0 16px 8px; border-top: 1px solid var(--line-2); }
+  .booked-list .num { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .list-row .tcode { flex: none; }
+
+  /* ================= commissioner ================= */
+  .login { display: grid; place-items: center; padding: 30px 0 10px; }
+  .login-card { width: min(460px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 30px 28px 24px; box-shadow: var(--shadow-lg); text-align: center; }
+  .login-icon { width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 16px; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(140deg, #ff8a3d, #e8590c 60%, #b8400a); }
+  .login-card h1 { font-size: 32px; }
+  .login-card > p { margin: 8px 0 20px; }
+  .login-card form { text-align: left; display: grid; gap: 12px; }
+  .btn.wide { width: 100%; justify-content: center; padding: 11px; }
+  details.how { margin-top: 18px; text-align: left; border-top: 1px solid var(--line-2); padding-top: 12px; }
+  details.how summary { cursor: pointer; font-weight: 700; color: var(--link); font-size: 13.5px; }
+  details.how ol { margin: 10px 0 0; padding-left: 20px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+
+  .admin { display: grid; grid-template-columns: 248px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .admin-nav { position: sticky; top: 76px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); }
+  .who-card { display: flex; align-items: center; gap: 10px; padding: 8px 8px 12px; margin-bottom: 6px; border-bottom: 1px solid var(--line-2); }
+  .who-card b { display: block; font-size: 14px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; }
+  .who-card .grow span { font-size: 12px; color: var(--muted); }
+  .who-av { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 800; }
+  .admin-nav nav { display: flex; flex-direction: column; gap: 2px; }
+  .an { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 10px; border: 0; border-radius: 11px; background: none; cursor: pointer;
+    font: inherit; font-weight: 650; color: var(--muted); text-align: left; }
+  .an svg { flex: none; color: var(--faint); }
+  .an span { flex: 1; }
+  .an em { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .an.alert em { background: var(--accent); color: #fff; }
+  .an:hover { background: var(--chip); color: var(--text); }
+  .an.on { background: var(--ink); color: #fff; }
+  .an.on svg { color: #ffa366; }
+  .an.on em { background: rgba(255,255,255,.16); color: #fff; }
+  .admin-head { margin: 2px 0 14px; }
+  .apanel .panel-head { margin-bottom: 14px; }
+  .form2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 14px; align-items: end; }
+  .f { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .f > span { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .f.wide { grid-column: span 2; }
+  .f input, .f .dd, .f .dd-btn { width: 100%; }
+  .f .dd-btn { justify-content: space-between; min-height: 40px; box-shadow: none; }
+  .dd-field { position: relative; }
+  .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .editor { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+  .ed-who { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .ed-who .av { width: 44px; height: 44px; }
+  .ed-who b { display: block; font-size: 16px; }
+  .seasons { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+  .sea { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line-2); }
+  .sea > span { font-size: 11.5px; font-weight: 800; color: var(--muted); letter-spacing: .04em; }
+  .sea input, .sea select { width: 100%; padding: 7px 9px; font-size: 14px; border-radius: 9px; }
+  .clist { display: flex; flex-direction: column; }
+  .crow { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--line-2); }
+  .crow:last-child { border-bottom: 0; }
+  .crow .nm { flex: 1; min-width: 0; }
+  .crow .nm .small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crow .num { flex: none; }
+  .crow .swatch { height: 34px; margin-right: 0; }
+  .rank-in { width: 72px; text-align: center; font-weight: 800; }
+  .done { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 10px; color: var(--good); text-align: center; }
+  .done b { color: var(--text); font-size: 16px; }
+  .hgroup { border: 1px solid var(--line); border-left: 4px solid var(--c1); border-radius: 12px; padding: 4px 12px; margin-bottom: 10px; }
+  .hg-head { display: flex; align-items: center; gap: 10px; padding: 8px 0 6px; border-bottom: 1px solid var(--line-2); }
+  .bals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .bal { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--c1); background: var(--card); }
+  .bal b { font-size: 16px; margin-left: auto; }
+  .bal .small { display: none; }
+  .bal.over { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 6%, var(--card)); }
+  .sync-card { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: var(--card-2); border: 1px solid var(--line-2); flex-wrap: wrap; }
+  .sync-card b { display: block; }
+  .sync-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--ink); color: #ffa366; flex: none; }
+  .alog .al { display: grid; grid-template-columns: 108px 1fr; gap: 4px 14px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+  .alog .al:last-child { border-bottom: 0; }
+  .alog .d { display: flex; flex-direction: column; }
+  .alog .d b { font-size: 13.5px; } .alog .d span { font-size: 12.5px; color: var(--muted); }
+  .alog .body .small { margin-top: 4px; }
+  @media (max-width: 900px) {
+    .admin { grid-template-columns: 1fr; gap: 12px; }
+    .admin-nav { position: static; padding: 8px; }
+    .admin-nav nav { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+    .admin-nav nav::-webkit-scrollbar { display: none; }
+    .an { width: auto; flex: none; white-space: nowrap; }
+    .who-card { padding: 4px 6px 10px; }
+  }
+  @media (max-width: 640px) { .f.wide { grid-column: auto; } .alog .al { grid-template-columns: 1fr; } .crow { flex-wrap: wrap; } }
+  @media (max-width: 900px) { .admin { grid-template-columns: minmax(0, 1fr); } }
+  .admin-main, .apanel { min-width: 0; }

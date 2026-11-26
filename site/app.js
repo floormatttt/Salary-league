@@ -44,11 +44,12 @@ var LOCAL = {
   // Every Sleeper transaction (data/txns.json, this league and the ones before it), with the
   // League Log's notes (cap hold created, needs contract…) on the moves they describe.
   getLog: function () {
-    return Promise.all([dataFile("log"), dataFile("txns").catch(function () { return []; })]).then(function (r) {
-      var log = r[0], tx = r[1] || [];
+    return Promise.all([dataFile("log"), dataFile("txns").catch(function () { return []; }), dataFile("adminLog").catch(function () { return []; })]).then(function (r) {
+      var log = r[0], tx = r[1] || [], alog = r[2] || [];
       var byTs = {};
       log.forEach(function (x) { byTs[new Date(x.ts).getTime()] = x; });
       var rows = tx.length ? tx.map(function (t) { return fromSleeper(t, byTs[t.ts]); }) : log.slice();
+      rows = rows.concat(holdRows(tx), extensionRows(alog));
       rows.sort(function (a, b) { return new Date(b.ts) - new Date(a.ts); });
       return { rows: rows.map(function (x) { return Object.assign({ when: when(x.ts) }, x); }), lastSync: S.L.lastSync ? when(S.L.lastSync) : "" };
     });
@@ -108,6 +109,41 @@ function fromSleeper(t, note) {
   if (note) { row.details = note.details || row.details; row.status = note.status || ""; }
   return row;
 }
+// Cap holds as log rows, dated by the Sleeper drop that made them (else the date they were added)
+function holdRows(tx) {
+  var ridOf = {}, nameOf = {};
+  DATA.teams.forEach(function (t) { ridOf[t.code] = String(t.rid); nameOf[t.code] = t.name; });
+  var drops = {};                                   // rid|norm(name) -> latest drop
+  (tx || []).forEach(function (t) {
+    Object.keys(t.d || {}).forEach(function (pid) {
+      var p = DATA.players[pid], k = String(t.d[pid]) + "|" + LM.norm(p ? p[0] : "");
+      if (!drops[k] || drops[k].ts < t.ts) drops[k] = t;
+    });
+  });
+  var season = LIVE.league && LIVE.league.season;
+  return (DATA.holds || []).map(function (h) {
+    var name = plain(h.name), drop = drops[ridOf[h.code] + "|" + LM.norm(name)];
+    return { ts: drop ? new Date(drop.ts).toISOString() : h.added, season: drop ? drop.s : season, type: "Cap hold", teams: nameOf[h.code] || h.code,
+      players: name, details: /^Imported/.test(h.note || "") ? "" : h.note || "", status: "" };
+  });
+}
+// Extensions recorded on the commissioner page (dated, from the admin log)
+function extensionRows(alog) {
+  var season = LIVE.league && LIVE.league.season;
+  return (alog || []).filter(function (r) { return /Extension/.test(r.action); }).map(function (r) {
+    var m = /Extended (.*?) \(([A-Z]+)\): (.*)$/.exec(r.details) || [];
+    var who = rosterIdx()[LM.norm(m[1] || "")];
+    return { ts: r.ts, season: season, type: "Extension", teams: who ? teamName(who.code) : "", players: m[1] || "", details: m[3] || r.details, status: "" };
+  });
+}
+// Extensions already on the books (contract details say "Ext 27-28"), not dated
+function bookedExtensions() {
+  var idx = rosterIdx();
+  return S.L.contracts.filter(function (c) { return !c.hold && /\bExt\b/.test(c.det); }).map(function (c) {
+    var r = idx[LM.norm(c.n)];
+    return { c: c, code: r ? r.code : "" };
+  });
+}
 function seasonLabel(s) { s = Number(s); return s ? s + "-" + String((s + 1) % 100).padStart(2, "0") : ""; }
 
 // Same call style the card code uses
@@ -161,7 +197,16 @@ function teamItems(blank) {
   });
   return blank != null ? [{ v: "", cls: "all-opt", html: '<span class="dd-name">' + esc(blank) + "</span>" }].concat(list) : list;
 }
-function onPick(act, v) {
+function onPick(act, v, el) {
+  if (act.indexOf("field:") === 0 && el) {
+    var dd = el.closest(".dd"), wrap = dd.parentNode;
+    wrap.querySelector('input[type="hidden"]').value = v;
+    dd.querySelector(".dd-cur").innerHTML = el.innerHTML;
+    Array.prototype.forEach.call(dd.querySelectorAll(".dd-opt"), function (o) { o.classList.toggle("on", o === el); o.setAttribute("aria-selected", String(o === el)); });
+    if (/^field:ext/.test(act)) refreshExt();
+    if (act === "field:cashSeason") { S.admin.cashSeason = v; rerender(); }
+    return;
+  }
   if (act === "pickTeam") Nav.go("team/" + v);
   else if (act === "plTeam") { S.pl.team = v; S.pl.limit = 150; rerender(); }
   else if (act === "logTeam") { S.lg.team = v; S.lg.n = 100; rerender(); }
@@ -322,12 +367,12 @@ function pageHome() {
     '<div class="kpi"><div class="v">' + (low ? money(low.p) : "—") + '</div><div class="k">Lowest payroll · ' + (low ? teamLink(low.t.code) : "") + "</div></div>" +
     '<div class="kpi"><div class="v">' + pending + '</div><div class="k">Contracts pending</div></div></div>';
 
-  var ranks = L.teams.slice(0, 10).map(function (t) {
+  var ranks = LM.standings(L.teams).slice(0, 10).map(function (t, i) {
     var p = book(t.code).payroll[0];
-    return '<div class="list-row">' + rankBadge(t) + swatch(t.code) + '<div class="nm">' + teamLink(t.code) + '<span class="muted small">' + esc(t.owner) + " · " + record(t) + "</span></div>" +
+    return '<div class="list-row"><span class="rk' + (i < 3 ? " top" : "") + '">' + (i + 1) + "</span>" + swatch(t.code) + '<div class="nm">' + teamLink(t.code) + '<span class="muted small">' + esc(t.owner) + " · " + record(t) + "</span></div>" +
       '<div class="num">' + money(p) + "</div>" + tierChip(p) + "</div>";
   }).join("");
-  var left = '<div class="box"><div class="panel-head"><h3>Power rankings</h3><a href="#standings" data-go="standings">Full standings →</a></div>' + ranks + "</div>";
+  var left = '<div class="box"><div class="panel-head"><h3>Standings</h3><a href="#standings" data-go="standings">Full standings →</a></div>' + ranks + "</div>";
 
   if (!S.log) api("getLog").then(function (d) { S.log = d; var el = $("homeLog"); if (el) el.innerHTML = homeLog(); }, function () {});
   var right = '<div class="box"><div class="panel-head"><h3>Latest moves</h3><a href="#log" data-go="log">All transactions →</a></div><div id="homeLog">' + (S.log ? homeLog() : loading()) + "</div></div>" +
@@ -695,7 +740,7 @@ function tradeChanged() {
 }
 
 /* ============================ transactions ============================ */
-function logKind(type) { return /trade/i.test(type) ? "Trade" : /add/i.test(type) ? "Add" : /drop/i.test(type) ? "Drop" : ""; }
+function logKind(type) { return /trade/i.test(type) ? "Trade" : /cap hold/i.test(type) ? "Hold" : /extension/i.test(type) ? "Ext" : /add/i.test(type) ? "Add" : /drop/i.test(type) ? "Drop" : ""; }
 // --- transaction entries: team-colored names, player photos, a "gets" card per side of a trade ---
 function codeOf(name) { var t = S.L.teams.filter(function (x) { return x.name === name; })[0]; return t ? t.code : ""; }
 function tname(name) {
@@ -756,7 +801,15 @@ function logList() {
     return true;
   });
   var shown = rows.slice(0, f.n), last = null;
-  return '<div class="muted small" style="margin:0 2px 8px">' + rows.length + " transaction" + (rows.length === 1 ? "" : "s") + "</div>" +
+  var ext = (!f.type || f.type === "Extension") && !f.season ? bookedExtensions().filter(function (x) { return !f.team || x.code === f.team; }) : [];
+  var extBox = ext.length ? '<details class="box booked"' + (f.type === "Extension" ? " open" : "") + '><summary><span class="badge Ext">Extensions</span><b>' + ext.length +
+    " extension" + (ext.length === 1 ? "" : "s") + ' on the books</b><span class="muted small">signed before tracking began</span></summary><div class="booked-list">' +
+    ext.map(function (x) {
+      var c = x.c, i0 = c.sal.findIndex(function (v, i) { return i > 0 && typeof v === "number"; });
+      return '<div class="list-row">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.det) + "</span></div>" + tcode(x.code) +
+        '<div class="num">' + S.L.seasons.map(function (_, i) { return i ? salCell(c, i) : ""; }).filter(Boolean).slice(0, 4).join(" ") + "</div></div>";
+    }).join("") + "</div></details>" : "";
+  return extBox + '<div class="muted small" style="margin:0 2px 8px">' + rows.length + " transaction" + (rows.length === 1 ? "" : "s") + "</div>" +
     box("", (shown.map(function (r) {
       var sep = r.season && r.season !== last ? '<div class="log-sep"><span>' + esc(seasonLabel(r.season)) + " season</span></div>" : "";
       last = r.season || last;
@@ -769,7 +822,7 @@ function pageLog() {
     api("getLog").then(function (d) { S.log = d; if (/^log/.test(S.hash)) rerender(); }, function (e) { view().innerHTML = box("", '<div class="err">' + esc(e.message) + "</div>"); });
     return '<div class="pagehead"><h1>Transactions</h1></div>' + loading("Loading the League Log");
   }
-  var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"]];
+  var types = [["", "All types"], ["Trade", "Trades"], ["Add", "Adds"], ["Drop", "Drops"], ["Cap hold", "Cap holds"], ["Extension", "Extensions"]];
   var seasons = []; S.log.rows.forEach(function (r) { if (r.season && seasons.indexOf(String(r.season)) < 0) seasons.push(String(r.season)); });
   seasons.sort().reverse();
   S.log.rows.forEach(function (r) { if (!logKind(r.type) && !types.some(function (t) { return t[0] === r.type; })) types.push([r.type, r.type]); });
@@ -809,8 +862,22 @@ function pageRules() {
 }
 
 /* ============================ commissioner ============================ */
-var ADMIN_TABS = [["pending", "Pending"], ["contracts", "Contracts"], ["holds", "Cap holds"], ["waive", "Waived & re-signed"],
-                  ["cash", "Cash"], ["ranks", "Rankings"], ["sync", "Sync & log"]];
+var ADMIN_TABS = [["pending", "Pending"], ["contracts", "Contracts"], ["extend", "Extensions"], ["holds", "Cap holds"],
+                  ["waive", "Waived & re-signed"], ["cash", "Cash"], ["ranks", "Power rankings"], ["sync", "Sync & log"]];
+var ICONS = {
+  pending: '<circle cx="10" cy="10" r="7"/><path d="M10 6.2V10l2.6 1.8"/>',
+  contracts: '<path d="M6 2.8h5.6L15 6.2v11H6z"/><path d="M11.4 2.8v3.6H15M8.4 10h4.2M8.4 13h4.2"/>',
+  extend: '<path d="M3.5 10h11.5M11.5 6l4 4-4 4"/><path d="M3.5 5.5v9"/>',
+  holds: '<rect x="4" y="8.4" width="12" height="8.6" rx="2"/><path d="M7 8.4V6.4a3 3 0 0 1 6 0v2"/>',
+  waive: '<path d="M4.5 7.5H13a3.3 3.3 0 0 1 0 6.6H8.5"/><path d="M7.5 4.5l-3 3 3 3"/>',
+  cash: '<rect x="2.8" y="5.2" width="14.4" height="9.6" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.6 8v4M14.4 8v4"/>',
+  ranks: '<path d="M5 16.5V10M10 16.5V4.5M15 16.5V8"/>',
+  sync: '<path d="M15.5 8.5A5.8 5.8 0 0 0 5 6.2L3.6 7.6M4.5 11.5A5.8 5.8 0 0 0 15 13.8l1.4-1.4"/><path d="M3.6 3.8v3.8h3.8M16.4 16.2v-3.8h-3.8"/>',
+  key: '<circle cx="7" cy="12.5" r="3.5"/><path d="M9.5 10 16 3.5M13.5 6l2 2M11.6 7.9l1.6 1.6"/>',
+};
+function icon(k, size) {
+  return '<svg viewBox="0 0 20 20" width="' + (size || 18) + '" height="' + (size || 18) + '" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[k] + "</svg>";
+}
 
 function adminLogout(msg) { Admin.signOut(); if (msg) toast(msg, true); rerender(); }
 // Runs mutation steps as one commit, then shows the result right away
@@ -818,7 +885,7 @@ function adminLogout(msg) { Admin.signOut(); if (msg) toast(msg, true); rerender
 function adminCall(steps, okMsg) {
   return Admin.apply(steps).then(function (res) {
     ["contracts", "holds", "cash", "teams", "adminLog"].forEach(function (k) { DATA[k] = res.D[k]; });
-    S.admin.log = null;
+    S.admin.log = null; S.log = null;
     rebuild();
     toast((typeof okMsg === "function" ? okMsg(res) : okMsg || "Saved") + ". The public site updates in about a minute.");
     return res;
@@ -831,52 +898,80 @@ function activeNames() {
   return '<datalist id="activeNames">' + S.L.contracts.filter(function (c) { return !c.hold; })
     .map(function (c) { return "<option value=\"" + esc(c.n) + "\">"; }).join("") + "</datalist>";
 }
+// A form field that's a custom dropdown (team colors etc.); the value lives in a hidden input read by val(key)
+function fieldDD(key, value, items, aria) {
+  return '<div class="dd-field">' + dropdown("field:" + key, value, items, aria) + '<input type="hidden" data-k="' + esc(key) + '" value="' + esc(value == null ? "" : value) + '"></div>';
+}
+function plainItems(list) { return list.map(function (x) { return { v: String(x[0]), html: '<span class="dd-name">' + esc(x[1]) + "</span>" }; }); }
+function field(label, inner, wide) { return '<div class="f' + (wide ? " wide" : "") + '"><span>' + esc(label) + "</span>" + inner + "</div>"; }
+function panel(title, inner, extra) {
+  return '<section class="box apanel"><div class="panel-head"><h3>' + esc(title) + "</h3>" + (extra || "") + "</div>" + inner + "</section>";
+}
+function contractByName(name) {
+  var k = LM.norm(plain(name || ""));
+  return k ? S.L.contracts.filter(function (c) { return !c.hold && LM.norm(c.n) === k; })[0] : null;
+}
 
 function pageAdmin() {
   var A = S.admin;
   if (!Admin.signedIn()) {
-    return '<div class="pagehead"><div><h1>Commissioner</h1><div class="sub">Edit contracts, cap holds, cash and rankings</div></div></div>' +
-      '<div class="box" style="max-width:560px"><form id="loginForm"><label class="f">GitHub token<input type="password" id="pass" autocomplete="off" placeholder="github_pat_…"></label>' +
-      '<div class="row" style="margin:10px 0 0"><button class="btn pri" type="submit">Sign in</button><span class="err small" id="loginMsg"></span></div></form>' +
-      '<p class="muted small">Every edit is saved as a commit to the league\'s GitHub repo, so commissioners sign in with a GitHub token that can write to ' +
-      esc(SITE.owner + "/" + SITE.repo) + '. Make one at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub › Settings › Fine-grained tokens</a>: ' +
-      "repository access “Only select repositories” → this repo; permissions <b>Contents: Read and write</b> and <b>Actions: Read and write</b>. " +
-      "The token stays in this browser until you sign out.</p></div>";
+    return '<div class="login"><div class="login-card"><div class="login-icon">' + icon("key", 26) + "</div><h1>Commissioner</h1>" +
+      '<p class="muted">Sign in with your GitHub token to edit contracts, extensions, cap holds, cash and rankings.</p>' +
+      '<form id="loginForm"><div class="f"><span>GitHub token</span><input type="password" id="pass" autocomplete="off" placeholder="github_pat_…"></div>' +
+      '<button class="btn pri wide" type="submit">Sign in</button><div class="err small" id="loginMsg"></div></form>' +
+      '<details class="how"><summary>How do I get a token?</summary><ol>' +
+      '<li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub › Fine-grained tokens</a>.</li>' +
+      "<li>Repository access: <b>Only select repositories</b> → <b>" + esc(SITE.owner + "/" + SITE.repo) + "</b>.</li>" +
+      "<li>Permissions: <b>Contents</b> and <b>Actions</b> → Read and write.</li>" +
+      "<li>Generate it and paste it here. It stays in this browser until you sign out.</li></ol></details></div></div>";
   }
-  var tabs = '<div class="seg" style="margin-bottom:12px">' + ADMIN_TABS.map(function (t) {
-    return '<button data-act="adminTab" data-v="' + t[0] + '" class="' + (A.tab === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
-  var body = ({ pending: adminPending, contracts: adminContracts, holds: adminHolds, waive: adminWaive, cash: adminCash,
+  var counts = {
+    pending: S.L.contracts.filter(function (c) { return /pending/i.test(c.det); }).length,
+    holds: S.L.holds.length,
+  };
+  var who = Admin.who() || "";
+  var nav = '<aside class="admin-nav"><div class="who-card"><span class="who-av">' + esc(who.charAt(0).toUpperCase() || "?") + '</span><div class="grow"><b>' + esc(who) +
+    '</b><span>Commissioner</span></div><button class="linkbtn small" data-act="logout">Sign out</button></div><nav>' +
+    ADMIN_TABS.map(function (t) {
+      var n = counts[t[0]];
+      return '<button class="an' + (A.tab === t[0] ? " on" : "") + (t[0] === "pending" && n ? " alert" : "") + '" data-act="adminTab" data-v="' + t[0] + '">' + icon(t[0]) +
+        "<span>" + esc(t[1]) + "</span>" + (n ? "<em>" + n + "</em>" : "") + "</button>";
+    }).join("") + "</nav></aside>";
+  var body = ({ pending: adminPending, contracts: adminContracts, extend: adminExtend, holds: adminHolds, waive: adminWaive, cash: adminCash,
                 ranks: adminRanks, sync: adminSync })[A.tab]();
-  return '<div class="pagehead keep"><div><h1>Commissioner</h1><div class="sub">Signed in as ' + esc(Admin.who()) + "</div></div>" +
-    '<button class="btn" data-act="logout">Sign out</button></div>' + tabs + (A.edit ? contractEditor(A.edit) : "") + body + activeNames();
+  var title = ADMIN_TABS.filter(function (t) { return t[0] === A.tab; })[0][1];
+  return '<div class="admin">' + nav + '<div class="admin-main"><div class="admin-head"><div class="eyebrow">Commissioner</div><h1>' + esc(title) + "</h1></div>" +
+    (A.edit ? contractEditor(A.edit) : "") + body + "</div></div>" + activeNames();
 }
 
 function contractEditor(c) {
-  var L = S.L;
-  var rows = L.seasons.map(function (s, i) {
+  var L = S.L, r = c.id ? rosterIdx()[LM.norm(c.n)] : null;
+  var cards = L.seasons.map(function (s, i) {
     var v = c.sal[i];
-    return "<tr><td>" + esc(s) + '</td><td class="l"><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" style="width:90px" placeholder="—"></td>' +
-      '<td class="l"><select data-stat="' + i + '">' + ["", "PO", "TO", "MAX", "SMAX", "HOLD"].map(function (x) { return opt(x, x || "—", (c.st[i] || "") === x); }).join("") + "</select></td></tr>";
+    return '<div class="sea"><span>' + esc(s) + '</span><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" placeholder="—" aria-label="Salary ' + esc(s) + '">' +
+      '<select data-stat="' + i + '" aria-label="Status ' + esc(s) + '">' + ["", "PO", "TO", "MAX", "SMAX", "HOLD"].map(function (x) { return opt(x, x || "Guaranteed", (c.st[i] || "") === x); }).join("") + "</select></div>";
   }).join("");
-  return '<div class="box" id="editor"><h3>' + (c.id ? "Edit contract · " + esc(c.n) : "New contract") + "</h3>" +
-    '<div class="form"><label class="f">Player name<input type="text" data-k="n" value="' + esc(c.n) + '"></label>' +
-    '<label class="f">NBA team<input type="text" data-k="nba" value="' + esc(c.nba) + '" placeholder="ATL (Z if unknown)" style="text-transform:uppercase"></label></div>' +
-    '<div class="tbl" style="margin:10px 0"><table><tr><th>Season</th><th class=l>Salary ($M, UFA, RFA)</th><th class=l>Status</th></tr>' + rows + "</table></div>" +
-    '<label class="f">Contract details<input type="text" data-k="det" value="' + esc(c.det) + '"></label>' +
+  return '<section class="box apanel editor" id="editor"><div class="panel-head"><h3>' + (c.id ? "Edit contract" : "New contract") + "</h3>" +
+    '<button class="x sm" data-act="cancelEdit" aria-label="Close">×</button></div>' +
+    (c.id ? '<div class="ed-who">' + avatar(c.n) + "<div><b>" + esc(plain(c.n)) + '</b><span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : "") + "</span></div></div>" : "") +
+    '<div class="form2">' + field("Player name", '<input type="text" data-k="n" value="' + esc(c.n) + '">') +
+    field("NBA team", '<input type="text" data-k="nba" value="' + esc(c.nba) + '" placeholder="ATL (Z if unknown)" style="text-transform:uppercase">') + "</div>" +
+    '<div class="f" style="margin-top:14px"><span>Salary by season ($M, or UFA / RFA)</span><div class="seasons">' + cards + "</div></div>" +
+    '<div class="form2" style="margin-top:14px">' + field("Contract details", '<input type="text" data-k="det" value="' + esc(c.det) + '" placeholder="e.g. Rookie; Ext 27-28">', true) + "</div>" +
     '<p class="muted small">' + (c.id ? "Name it “Player (cap hold)” to make it a cap hold." : "A new contract goes at the end of its NBA team's group.") + "</p>" +
-    '<div class="row start"><button class="btn pri" data-act="saveContract">Save</button><button class="btn" data-act="cancelEdit">Cancel</button>' +
-    (c.id ? '<button class="btn danger" data-act="deleteContract" data-confirm="Tap again to delete">Delete contract</button>' : "") + "</div></div>";
+    '<div class="actions"><button class="btn pri" data-act="saveContract">Save contract</button><button class="btn" data-act="cancelEdit">Cancel</button>' +
+    (c.id ? '<button class="btn danger" data-act="deleteContract" data-confirm="Tap again to delete">Delete</button>' : "") + "</div></section>";
 }
 function editable(c) { return { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det }; }
 function contractList(list) {
   if (!list.length) return '<div class="empty">Nothing here.</div>';
   var idx = rosterIdx();
-  return '<div class="tbl"><table><tr><th>Player</th><th class=l>NBA</th><th class=l>Team</th><th>' + esc(S.L.season) + '</th><th class=l>Details</th><th></th></tr>' +
-    list.map(function (c) {
-      var r = idx[LM.norm(c.n)];
-      return '<tr><td class="name">' + pbtn(c.n) + '</td><td class="l muted">' + esc(c.nba) + '</td><td class="l">' + (c.hold ? esc(holdTeam(c.n)) : r ? esc(r.code) : "—") +
-        "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(c.det) + '</td><td><button class="btn sm" data-act="edit" data-id="' + c.id + '">Edit</button></td></tr>';
-    }).join("") + "</table></div>";
+  return '<div class="clist">' + list.map(function (c) {
+    var r = idx[LM.norm(c.n)], code = c.hold ? holdTeam(c.n) : r ? r.code : "";
+    return '<div class="crow">' + avatar(c.n) + '<div class="nm">' + pbtn(c.n, c.hold ? plain(c.n) : "") + (c.hold ? '<span class="flag bad">Cap hold</span>' : "") +
+      '<span class="muted small">' + esc(c.nba) + (c.det ? " · " + esc(c.det) : "") + "</span></div>" + tcode(code) +
+      '<div class="num">' + (salCell(c, 0) || '<span class="muted">—</span>') + '</div><button class="btn sm" data-act="edit" data-id="' + c.id + '">Edit</button></div>';
+  }).join("") + "</div>";
 }
 function contractSearch(q) {
   var qn = LM.norm(q);
@@ -884,75 +979,137 @@ function contractSearch(q) {
 }
 function adminPending() {
   var list = S.L.contracts.filter(function (c) { return /pending/i.test(c.det); });
-  return box("Pending contracts · " + list.length, '<p class="muted small" style="margin-top:0">The sync adds one of these whenever a team picks up a player without a contract. Set the salary and clear the PENDING note.</p>' + contractList(list));
+  return panel("Waiting for a contract · " + list.length, list.length
+    ? '<p class="muted small" style="margin-top:0">The sync adds one of these when a team picks up a player without a contract. Set the salary and clear the PENDING note.</p>' + contractList(list)
+    : '<div class="done">' + icon("pending", 22) + "<b>All caught up</b><span class=\"muted small\">New pickups without a contract show up here.</span></div>");
 }
 function adminContracts() {
   var q = S.admin.q.trim();
-  return '<div class="box"><div class="row"><input type="search" class="grow" id="cq" placeholder="Find a contract by player or NBA team" value="' + esc(q) + '">' +
-    '<button class="btn" data-act="newContract">New contract</button></div><div id="cList">' + (q ? contractList(contractSearch(q)) : '<div class="empty">Search to edit or delete a contract.</div>') + "</div></div>";
+  return panel("Find a contract", '<div class="toolbar"><div class="search"><input type="search" id="cq" placeholder="Player or NBA team (e.g. LAL)" value="' + esc(q) + '" aria-label="Find a contract"></div>' +
+    '<button class="btn pri" data-act="newContract">+ New contract</button></div><div id="cList">' +
+    (q ? contractList(contractSearch(q)) : '<div class="empty">Search to edit or delete a contract.</div>') + "</div>");
 }
+// ---- extensions
+function extState() {
+  var E = S.admin.ext || (S.admin.ext = { name: "", start: "", years: "2", amt: "", st: "" });
+  return E;
+}
+function extPreview() {
+  var E = extState(), c = contractByName(E.name), L = S.L;
+  if (!E.name.trim()) return '<div class="empty">Pick a player to see his contract.</div>';
+  if (!c) return '<div class="empty">No contract for “' + esc(E.name) + '” on the Master list.</div>';
+  var after = null, err = "";
+  try {
+    var copy = { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det };
+    Mutations.extend({ contracts: { seasons: L.seasons, rows: [copy] } }, { id: c.id, start: E.start, years: E.years, amt: E.amt, st: E.st });
+    after = copy;
+  } catch (e) { err = e.message; }
+  var row = function (label, x) { return "<tr><td>" + label + "</td>" + L.seasons.map(function (_, i) { var v = salCell(x, i); return "<td" + (v ? "" : ' class="dim"') + ">" + (v || "·") + "</td>"; }).join("") + "</tr>"; };
+  return '<div class="ed-who">' + avatar(c.n) + "<div><b>" + esc(c.n) + '</b><span class="muted small">' + esc(c.nba) + (c.det ? " · " + esc(c.det) : "") + "</span></div></div>" +
+    '<div class="tbl"><table><tr><th></th>' + L.seasons.map(function (x) { return "<th>" + esc(x) + "</th>"; }).join("") + "</tr>" + row("Now", c) +
+    (after ? row("<b>After</b>", after) : "") + "</table></div>" + (err ? '<p class="muted small">' + esc(err) + "</p>" : "");
+}
+function adminExtend() {
+  var E = extState(), L = S.L, c = contractByName(E.name);
+  if (!E.start) {
+    var first = c ? c.sal.findIndex(function (v, i) { return i > 0 && typeof v !== "number"; }) : 1;
+    E.start = String(first > 0 ? first : 1);
+  }
+  var seasons = L.seasons.map(function (x, i) { return [i, x]; }).slice(1);
+  return panel("Extend a contract",
+    '<div class="form2">' + field("Player", '<input type="text" list="activeNames" id="extName" data-k="extName" value="' + esc(E.name) + '" placeholder="Name on the contracts list">', true) +
+    field("First season", fieldDD("extStart", E.start, plainItems(seasons), "First season")) +
+    field("Years", fieldDD("extYears", E.years, plainItems([[1, "1 year"], [2, "2 years"], [3, "3 years"], [4, "4 years"], [5, "5 years"]]), "Years")) +
+    field("Salary per year ($M)", '<input type="number" min="0.5" step="0.1" inputmode="decimal" id="extAmt" data-k="extAmt" value="' + esc(E.amt) + '" placeholder="e.g. 25">') +
+    field("Kind", fieldDD("extSt", E.st, [{ v: "", html: '<span class="dd-name">Regular</span>' }, { v: "MAX", html: '<span class="mny m-max">Max</span>' },
+      { v: "SMAX", html: '<span class="mny m-smax">Supermax</span>' }], "Kind")) + "</div>" +
+    '<div id="extPreview" style="margin-top:14px">' + extPreview() + "</div>" +
+    '<div class="actions"><button class="btn pri" data-act="extend">Record extension</button></div>' +
+    '<p class="muted small">Fills those seasons, makes the next one UFA, tags the details (e.g. “Ext 29-30”) and adds it to Transactions.</p>');
+}
+function refreshExt() {
+  var E = extState();
+  E.name = val("extName"); E.start = val("extStart"); E.years = val("extYears"); E.amt = val("extAmt"); E.st = val("extSt");
+  var el = $("extPreview"); if (el) el.innerHTML = extPreview();
+}
+// ---- cap holds
 function adminHolds() {
-  var holds = S.L.holds.slice().sort(function (a, b) { return a.code.localeCompare(b.code) || a.name.localeCompare(b.name); });
-  var rows = holds.map(function (h) {
-    var c = S.L.contracts.filter(function (x) { return x.hold && LM.norm(x.n) === LM.norm(h.name); })[0];
-    return "<tr><td>" + esc(h.code) + '</td><td class="l">' + pbtn(h.name) + (c ? "" : '<span class="flag bad">No contract</span>') + "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(h.note || "") + "</td><td>" +
-      '<button class="btn sm danger" data-act="rmHold" data-id="' + h.id + '" data-confirm="Tap again">Remove</button></td></tr>';
+  var holds = S.L.holds.slice().sort(function (a, b) { return teamName(a.code).localeCompare(teamName(b.code)) || a.name.localeCompare(b.name); });
+  var groups = {}, order = [];
+  holds.forEach(function (h) { if (!groups[h.code]) { groups[h.code] = []; order.push(h.code); } groups[h.code].push(h); });
+  var list = order.map(function (code) {
+    var total = 0;
+    var rows = groups[code].map(function (h) {
+      var c = S.L.contracts.filter(function (x) { return x.hold && LM.norm(x.n) === LM.norm(h.name); })[0];
+      if (c && typeof c.sal[0] === "number") total += c.sal[0];
+      return '<div class="crow">' + avatar(h.name) + '<div class="nm">' + pbtn(h.name, plain(h.name)) + (c ? "" : '<span class="flag bad">No contract</span>') +
+        (h.note && !/^Imported/.test(h.note) ? '<span class="muted small">' + esc(h.note) + "</span>" : "") + '</div><div class="num">' + (salCell(c, 0) || "") + "</div>" +
+        '<button class="btn sm danger" data-act="rmHold" data-id="' + h.id + '" data-confirm="Tap again">Remove</button></div>';
+    }).join("");
+    return '<div class="hgroup"' + teamStyle(code) + '><div class="hg-head">' + tname(teamName(code)) + '<span class="muted small">' + groups[code].length + " hold" +
+      (groups[code].length === 1 ? "" : "s") + " · " + money(total) + "M this season</span></div>" + rows + "</div>";
   }).join("");
-  return box("Make a player a cap hold",
-      '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="holdName" placeholder="Name on the contracts list"></label>' +
-      '<label class="f">Team that carries it<select data-k="holdCode">' + teamOptions("", "Pick a team") + "</select></label>" +
-      '<button class="btn pri" data-act="addHold">Add cap hold</button></div><p class="muted small">Renames his contract to “(cap hold)” and puts it on that team. Removing a hold takes it off the team but keeps the contract row; delete that under Contracts if it\'s gone for good.</p>') +
-    box("Cap holds · " + holds.length, '<div class="tbl"><table><tr><th>Team</th><th class=l>Player</th><th>' + esc(S.L.season) + "</th><th class=l>Note</th><th></th></tr>" + rows + "</table></div>");
+  return panel("Make a player a cap hold",
+      '<div class="form2">' + field("Player", '<input type="text" list="activeNames" data-k="holdName" placeholder="Name on the contracts list">', true) +
+      field("Team that carries it", fieldDD("holdCode", "", teamItems("Pick a team"), "Team that carries it")) + "</div>" +
+      '<div class="actions"><button class="btn pri" data-act="addHold">Add cap hold</button></div>' +
+      '<p class="muted small">Renames his contract to “(cap hold)” and puts it on that team. Removing a hold keeps the contract row; delete that under Contracts if it\'s gone for good.</p>') +
+    panel("Cap holds · " + holds.length, list || '<div class="empty">No cap holds.</div>');
 }
 function adminWaive() {
   var w = S.admin.waive || {};
-  return box("Waived & re-signed",
-    '<p class="muted small" style="margin-top:0">For a player who was waived and signed again: his old contract becomes a cap hold on the team that waived him, and he gets a new $2.0M / 1-year minimum (then UFA) in his NBA team\'s group.</p>' +
-    '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="waiveName" value="' + esc(w.name || "") + '" placeholder="Name on the contracts list"></label>' +
-    '<label class="f">Team that carries the cap hold<select data-k="waiveCode">' + teamOptions(w.code || "", "Which team waived him?") + "</select></label>" +
-    '<button class="btn pri" data-act="waive">Convert</button></div>' +
-    (w.msg ? '<p class="ok">' + esc(w.msg) + "</p>" : ""));
+  return panel("Waived & re-signed",
+    '<p class="muted small" style="margin-top:0">His old contract becomes a cap hold on the team that waived him, and he gets a new $2.0M / 1-year minimum (then UFA) in his NBA team\'s group.</p>' +
+    '<div class="form2">' + field("Player", '<input type="text" list="activeNames" data-k="waiveName" value="' + esc(w.name || "") + '" placeholder="Name on the contracts list">', true) +
+    field("Team that waived him", fieldDD("waiveCode", w.code || "", teamItems("Pick a team"), "Team that waived him")) + "</div>" +
+    '<div class="actions"><button class="btn pri" data-act="waive">Convert</button></div>' + (w.msg ? '<p class="ok">' + esc(w.msg) + "</p>" : ""));
 }
+// ---- cash
 function adminCash() {
   var L = S.L, A = S.admin, season = A.cashSeason || L.season;
   var bal = {};
   L.cash.forEach(function (x) { if (x.season === season) bal[x.code] = LM.r1((bal[x.code] || 0) + x.amt); });
-  var chips = Object.keys(bal).filter(function (k) { return bal[k]; }).sort().map(function (k) {
-    return '<span class="chip ' + (Math.abs(bal[k]) > L.limits.cash ? "inj" : "") + '">' + esc(k) + " " + signed(bal[k]) + "</span>"; }).join(" ");
+  var cards = Object.keys(bal).filter(function (k) { return bal[k]; }).sort(function (a, b) { return bal[b] - bal[a]; }).map(function (k) {
+    var over = Math.abs(bal[k]) > L.limits.cash;
+    return '<div class="bal' + (over ? " over" : "") + '"' + teamStyle(k) + ">" + tcode(k) + '<b class="' + cls(bal[k]) + '">' + signed(bal[k]) + '</b><span class="muted small">' +
+      (bal[k] > 0 ? "sent" : "received") + "</span></div>"; }).join("");
   var rows = L.cash.slice().reverse().map(function (x) {
-    return "<tr><td>" + esc(x.code) + '</td><td class="l muted">' + esc(String(x.date || "").slice(0, 10)) + '</td><td class="l">' + esc(x.season) + '</td><td class="' + cls(x.amt) + '">' + signed(x.amt) +
-      '</td><td class="l small">' + esc(x.note) + (x.ref ? ' <span class="muted">' + esc(x.ref) + "</span>" : "") + "</td><td>" +
+    return "<tr><td>" + tcode(x.code) + '</td><td class="l muted">' + esc(String(x.date || "").slice(0, 10)) + '</td><td class="l">' + esc(x.season) + '</td><td class="' + cls(x.amt) + '"><b>' + signed(x.amt) +
+      '</b></td><td class="l small">' + esc(x.note) + (x.ref ? ' <span class="muted">' + esc(x.ref) + "</span>" : "") + "</td><td>" +
       '<button class="btn sm danger" data-act="rmCashRow" data-id="' + x.id + '" data-confirm="Tap again">Delete</button></td></tr>';
   }).join("");
-  return box("Record a cash transfer",
-      '<div class="form"><label class="f">Season<select data-k="cashSeason">' + L.seasons.map(function (s) { return opt(s, s, s === season); }).join("") + "</select></label>" +
-      '<label class="f">From (sends)<select data-k="cashFrom">' + teamOptions("", "Pick a team") + "</select></label>" +
-      '<label class="f">To (receives)<select data-k="cashToTeam">' + teamOptions("", "Pick a team") + "</select></label>" +
-      '<label class="f">Amount ($M)<input type="number" min="0.5" step="0.5" inputmode="decimal" data-k="cashAmt"></label>' +
-      '<label class="f">Note<input type="text" data-k="cashNote" placeholder="e.g. trade with Utah"></label></div>' +
-      '<div class="row start" style="margin-top:10px"><label class="check"><input type="checkbox" data-k="cashOverride"> Override the ±$' + L.limits.cash + 'M balance limit</label>' +
-      '<button class="btn pri" data-act="recordCash">Record</button></div>' +
+  return panel("Record a cash transfer",
+      '<div class="form2">' + field("From (sends)", fieldDD("cashFrom", "", teamItems("Pick a team"), "From")) +
+      field("To (receives)", fieldDD("cashToTeam", "", teamItems("Pick a team"), "To")) +
+      field("Amount ($M)", '<input type="number" min="0.5" step="0.5" inputmode="decimal" data-k="cashAmt" placeholder="e.g. 3">') +
+      field("Season", fieldDD("cashSeason", season, plainItems(L.seasons.map(function (x) { return [x, x]; })), "Season")) +
+      field("Note", '<input type="text" data-k="cashNote" placeholder="e.g. trade with Utah">', true) + "</div>" +
+      '<div class="actions"><button class="btn pri" data-act="recordCash">Record</button><label class="check"><input type="checkbox" data-k="cashOverride"> Override the ±$' + L.limits.cash + "M limit</label></div>" +
       '<p class="muted small">Adds two ledger rows: +amount for the sender (adds to its payroll) and −amount for the receiver.</p>') +
-    box("Balances " + esc(season), chips || '<span class="muted">Every team is at $0.0.</span>') +
-    box("Cash Ledger", '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div>");
+    panel("Balances · " + season, cards ? '<div class="bals">' + cards + "</div>" : '<div class="empty">Every team is at $0.0.</div>') +
+    panel("Cash ledger", '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div>");
 }
 function adminRanks() {
-  return box("Power rankings", '<p class="muted small" style="margin-top:0">Rank numbers for the standings. Records and points come from Sleeper.</p>' +
-    '<div class="tbl"><table><tr><th>Team</th><th>Rank</th><th>W-L-T</th><th>PF</th></tr>' + S.L.teams.map(function (t) {
-      return "<tr><td>" + esc(t.name) + '</td><td><input type="number" min="1" max="30" style="width:70px" data-rank="' + esc(t.code) + '" value="' + (t.rank == null ? "" : t.rank) + '"></td><td>' +
-        t.w + "-" + t.l + (t.t ? "-" + t.t : "") + "</td><td>" + f1(t.pf) + "</td></tr>"; }).join("") +
-    '</table></div><div class="row start" style="margin-top:10px"><button class="btn pri" data-act="saveRanks">Save rankings</button></div>');
+  var pos = {}; LM.standings(S.L.teams).forEach(function (t, i) { pos[t.code] = i + 1; });
+  return panel("Power rankings", '<p class="muted small" style="margin-top:0">The commissioners\' order, shown in the Power column on Standings. Leave blank to unrank a team.</p>' +
+    '<div class="clist">' + S.L.teams.map(function (t) {
+      return '<div class="crow">' + swatch(t.code) + '<div class="nm"><b>' + esc(t.name) + '</b><span class="muted small">' + record(t) + " · " + f1(t.pf) + " PF · " + ordinalNum(pos[t.code]) + " in standings</span></div>" +
+        '<input type="number" min="1" max="30" class="rank-in" data-rank="' + esc(t.code) + '" value="' + (t.rank == null ? "" : t.rank) + '" aria-label="Rank for ' + esc(t.name) + '" placeholder="—"></div>'; }).join("") +
+    '</div><div class="actions"><button class="btn pri" data-act="saveRanks">Save rankings</button></div>');
 }
+function ordinalNum(n) { if (!n) return ""; var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 function adminSync() {
   var log = S.admin.log;
   if (!log) Admin.adminLog().then(function (r) { S.admin.log = r; if (S.admin.tab === "sync" && /^admin/.test(S.hash)) rerender(); },
     function (e) { S.admin.log = []; toast(e.message, true); });
-  return box("Sleeper sync", '<p class="muted small" style="margin-top:0">Runs on GitHub every 5 minutes (GitHub sometimes runs it a few minutes late). Last change it made: ' +
-      esc(S.L.lastSync ? when(S.L.lastSync) : "—") + ".</p>" +
-      '<button class="btn pri" data-act="runSync">Run sync now</button>' +
-      ' <a class="small" href="https://github.com/' + esc(SITE.owner + "/" + SITE.repo) + '/actions" target="_blank" rel="noopener">See runs on GitHub</a>') +
-    box("Admin Log", !log ? loading() : log.length ? log.slice(0, 200).map(function (r) {
-      return '<div class="ent"><div class="d">' + esc(when(r.ts)) + '</div><div class="body"><b>' + esc(r.action) + '</b> <span class="muted small">' + esc(r.who || "") + '</span><div class="small">' + esc(r.details) + "</div></div></div>"; }).join("")
+  return panel("Sleeper sync", '<div class="sync-card"><div class="sync-ic">' + icon("sync", 22) + '</div><div class="grow"><b>Runs every 5 minutes on GitHub</b>' +
+      '<span class="muted small">Last change it made: ' + esc(S.L.lastSync ? when(S.L.lastSync) : "—") + "</span></div>" +
+      '<button class="btn pri" data-act="runSync">Run sync now</button></div>' +
+      '<p class="muted small">GitHub sometimes runs it a few minutes late. <a href="https://github.com/' + esc(SITE.owner + "/" + SITE.repo) + '/actions" target="_blank" rel="noopener">See runs on GitHub</a></p>') +
+    panel("Admin log", !log ? loading() : log.length ? '<div class="alog">' + log.slice(0, 200).map(function (r) {
+      var d = new Date(r.ts);
+      return '<div class="al"><time class="d" title="' + esc(when(r.ts)) + '"><b>' + esc(isNaN(d) ? "" : dayLabel(d)) + "</b><span>" + esc(isNaN(d) ? "" : timeLabel(d)) + "</span></time>" +
+        '<div class="body"><div class="ent-h"><span class="badge">' + esc(r.action) + '</span><span class="muted small">by ' + esc(r.who || "—") + '</span></div><div class="small">' + esc(r.details) + "</div></div></div>"; }).join("") + "</div>"
       : '<div class="empty">Nothing logged yet.</div>');
 }
 function val(k) { var el = view().querySelector('[data-k="' + k + '"]'); return el ? (el.type === "checkbox" ? el.checked : el.value) : ""; }
@@ -983,7 +1140,7 @@ document.addEventListener("click", function (ev) {
   var ddb = t.closest && t.closest("[data-act=ddToggle],[data-act=ddPick]");
   if (ddb) {
     var dd = ddb.closest(".dd");
-    if (ddb.getAttribute("data-act") === "ddPick") { closeMenus(); onPick(ddb.getAttribute("data-dd"), ddb.getAttribute("data-v")); return; }
+    if (ddb.getAttribute("data-act") === "ddPick") { closeMenus(); onPick(ddb.getAttribute("data-dd"), ddb.getAttribute("data-v"), ddb); return; }
     var open = !dd.classList.contains("open");
     closeMenus(dd);
     dd.classList.toggle("open", open); dd.querySelector(".dd-menu").hidden = !open; ddb.setAttribute("aria-expanded", String(open));
@@ -1059,7 +1216,7 @@ document.addEventListener("click", function (ev) {
       break;
 
     case "logout": adminLogout(); break;
-    case "adminTab": A.tab = b.getAttribute("data-v"); A.edit = null; rerender(); break;
+    case "adminTab": A.tab = b.getAttribute("data-v"); A.edit = null; rerender(); window.scrollTo(0, 0); break;
     case "edit":
       var id = Number(b.getAttribute("data-id"));
       A.edit = editable(S.L.contracts.filter(function (c) { return c.id === id; })[0]); rerender(); window.scrollTo(0, $("editor").offsetTop - 70); break;
@@ -1075,6 +1232,12 @@ document.addEventListener("click", function (ev) {
       break;
     case "deleteContract":
       busy(b, adminCall([["deleteContract", { id: A.edit.id }]], "Contract deleted").then(function () { A.edit = null; rerender(); }));
+      break;
+    case "extend":
+      var ec = contractByName(val("extName"));
+      if (!ec) { toast("Pick a player who's on the contracts list", true); break; }
+      busy(b, adminCall([["extend", { id: ec.id, start: Number(val("extStart")), years: Number(val("extYears")), amt: val("extAmt"), st: val("extSt") }]],
+        function (r) { return r.logs[0]; }).then(function () { S.admin.ext = null; rerender(); }));
       break;
     case "addHold":
       busy(b, adminCall([["addHold", { name: val("holdName"), code: val("holdCode") }]], function (r) { return r.logs[0]; }).then(rerender));
@@ -1118,6 +1281,13 @@ var inputTimer = null;
 document.addEventListener("input", function (ev) {
   var t = ev.target;
   if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
+  else if (t.id === "extName" || t.id === "extAmt") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
+    if (t.id === "extName" && contractByName(t.value)) {           // new player: start the extension after his current deal
+      var c = contractByName(t.value), first = c.sal.findIndex(function (v, i) { return i > 0 && typeof v !== "number"; });
+      var hid = view().querySelector('[data-k="extStart"]');
+      if (hid && first > 0) { hid.value = String(first); var opt2 = hid.parentNode.querySelector('.dd-opt[data-v="' + first + '"]'); if (opt2) hid.parentNode.querySelector(".dd-cur").innerHTML = opt2.innerHTML; }
+    }
+    refreshExt(); }, 150); }
   else if (t.id === "cq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
     S.admin.q = t.value; $("cList").innerHTML = S.admin.q.trim() ? contractList(contractSearch(S.admin.q)) : '<div class="empty">Search to edit or delete a contract.</div>'; }, 120); }
 });

@@ -18,6 +18,20 @@ describe("contracts", () => {
     assert.throws(() => MU.saveContract(D, { id: 99999, n: "X" }), /isn't there anymore/);
   });
 
+  test("an extension fills the new years, then UFA, and tags the details", () => {
+    const D = freshData();
+    const jj = row(D, "Jalen Johnson");
+    const res = MU.extend(D, { id: jj.id, start: 3, years: 2, amt: "45", st: "max" });
+    assert.deepEqual(jj.sal.slice(0, 6), [32, 43, 40, 45, 45, "UFA"]);
+    assert.deepEqual(jj.st.slice(3, 6), ["MAX", "MAX", ""]);
+    assert.match(jj.det, /Max Ext 29-30$/);
+    assert.match(res.log, /Extended Jalen Johnson \(ATL\): \$45\.0M × 2 years \(29-30 to 30-31\) · MAX/);
+    MU.extend(D, { id: jj.id, start: 3, years: 1, amt: 50 });
+    assert.equal((jj.det.match(/Ext/g) || []).length, 1, "re-extending replaces the tag");
+    assert.throws(() => MU.extend(D, { id: jj.id, start: 0, years: 2, amt: 5 }), /first season/);
+    assert.throws(() => MU.extend(D, { id: jj.id, start: 2, years: 9, amt: 5 }), /1 to 5 years/);
+  });
+
   test("a new contract lands at the end of its NBA team's group, with a new id", () => {
     const D = freshData();
     const lastAtl = D.contracts.rows.map((r, i) => [r.nba, i]).filter(x => x[0] === "ATL").pop()[1];
