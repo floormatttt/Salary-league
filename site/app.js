@@ -95,11 +95,17 @@ function teamOptions(sel, blank) {
   return (blank != null ? opt("", blank, !sel) : "") + S.L.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
     .map(function (t) { return opt(t.code, t.name + " (" + t.code + ")", t.code === sel); }).join("");
 }
+// A salary as a pill colored by the kind of money (LeagueMath.moneyKind); the status code stays as text
 function salCell(c, i) {
-  if (!c) return "";
-  var v = c.sal[i], s = c.st[i];
-  var out = typeof v === "number" ? money(v) : v ? '<span class="fa">' + esc(v) + "</span>" : "";
-  return out + (s ? '<span class="st ' + esc(s) + '">' + esc(s) + "</span>" : "");
+  var k = LM.moneyKind(c, i);
+  if (!k) return "";
+  var v = c.sal[i], s = String(c.st[i] || "");
+  if (k === "fa") return '<span class="fa">' + esc(v) + "</span>";
+  return '<span class="mny m-' + k + '">' + money(v) + (s && s !== "HOLD" ? "<em>" + esc(s) + "</em>" : "") + "</span>";
+}
+function moneyLegend() {
+  return '<div class="legend mlegend">' + LM.MONEY_KINDS.map(function (m) {
+    return m[0] === "fa" ? '<span><span class="fa">UFA</span>' + m[1] + "</span>" : '<span><i class="m-' + m[0] + '"></i>' + m[1] + "</span>"; }).join("") + "</div>";
 }
 function book(code) { return S.books[code] || (S.books[code] = LM.teamBook(S.L, code)); }
 function setLeague(L) { S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
@@ -281,7 +287,7 @@ function pageStandings() {
       '</td><td class="' + (b.maxes ? "" : "dim") + '">' + b.maxes + "/" + L.limits.maxes + '</td><td class="' + (b.smaxes ? "" : "dim") + '">' + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">Ranked by the commissioners · payroll includes cap holds and cash</div></div>' +
-    '<button class="btn hide-sm" data-act="download">Download spreadsheet</button></div>' +
+    "</div>" +
     '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th>Max</th><th>Supermax</th></tr>' +
     rows + "</table></div>" + tierLegend();
 }
@@ -364,7 +370,7 @@ function pageTeam(code) {
       return '<span class="chip' + (/\(own\)/.test(pk.label) ? " own" : "") + '">' + esc(pk.label.replace(/^\d{4} /, "")) + "</span>"; }).join("") + "</div></div>";
   }).join("") : '<div class="empty">No draft picks in the next drafts.</div>';
 
-  return head + statsHtml + warn + table + '<h2 class="sec">Draft picks</h2>' + box("", picksHtml);
+  return head + statsHtml + warn + moneyLegend() + '<div style="height:10px"></div>' + table + '<h2 class="sec">Draft picks</h2>' + box("", picksHtml);
 }
 
 /* ============================ players ============================ */
@@ -441,12 +447,12 @@ function pageContracts() {
   var all = playerRows();
   var counts = {}; PL_FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return plKind(r, f[0]); }).length; });
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(S.L.season) + '</div><h1>Contracts</h1><div class="sub">Every contract on the Master list, plus anyone rostered without one</div></div>' +
-    '<button class="btn hide-sm" data-act="download">Download spreadsheet</button></div>' +
+    "</div>" +
     '<div class="toolbar"><div class="search"><input type="search" id="plq" placeholder="Search players or NBA teams" value="' + esc(S.pl.q) + '" autocomplete="off" aria-label="Search"></div>' +
     '<select data-act="plTeam" aria-label="League team">' + teamOptions(S.pl.team, "All league teams") + "</select></div>" +
     '<div class="seg" style="margin-bottom:12px">' + PL_FILTERS.map(function (f) {
       return '<button data-act="plFilter" data-v="' + f[0] + '" class="' + (S.pl.f === f[0] ? "on" : "") + '">' + f[1] + '<span class="n">' + counts[f[0]] + "</span></button>"; }).join("") + "</div>" +
-    '<div id="plTable">' + plTable() + "</div>";
+    moneyLegend() + '<div id="plTable" style="margin-top:12px">' + plTable() + "</div>";
 }
 
 /* ============================ trade machine ============================ */
@@ -473,42 +479,58 @@ function pickName(label, from) { return String(label).replace("(own)", "(" + tea
 function moveOf(type, key, from) {
   return S.trade.moves.filter(function (m) { return m.type === type && m.from === from && (type === "player" ? m.name === key : m.label === key); })[0];
 }
-function destSelect(type, key, from) {
+// One tradeable thing (player or pick) as a tappable card. Tap to send it; with 3+ teams,
+// the "To" chips under it pick the receiver. Tap again to keep it.
+function assetCard(type, key, from, main, side) {
   var m = moveOf(type, key, from);
   var others = S.trade.teams.filter(function (c) { return c !== from; });
-  return '<select data-act="move" data-type="' + type + '" data-key="' + esc(key) + '" data-from="' + esc(from) + '" aria-label="Send to">' +
-    opt("", "Keep", !m) + others.map(function (c) { return opt(c, "→ " + c, m && m.to === c); }).join("") + "</select>";
+  var attrs = ' data-type="' + type + '" data-key="' + esc(key) + '" data-from="' + esc(from) + '"';
+  var dest = m && others.length > 1 ? '<div class="dests"><span>To</span>' + others.map(function (c) {
+    return '<button class="dest tc' + (m.to === c ? " on" : "") + '"' + teamStyle(c) + ' data-act="tradeDest" data-to="' + esc(c) + '"' + attrs + ">" + esc(c) + "</button>"; }).join("") + "</div>" : "";
+  return '<div class="asset' + (m ? " moving" : "") + '"' + (m ? teamStyle(m.to) : "") + '>' +
+    '<button class="asset-main" data-act="tradeAsset"' + attrs + ' aria-pressed="' + !!m + '"><span class="tick">' + (m ? "✓" : "+") + "</span>" +
+    '<span class="nm">' + main + "</span>" + (side ? '<span class="sal">' + side + "</span>" : "") +
+    (m && others.length < 2 ? '<span class="to">→ ' + esc(m.to) + "</span>" : "") + "</button>" +
+    (type === "player" ? '<button class="info plink" data-player="' + esc(key) + '" title="Player card" aria-label="Player card">i</button>' : "") + "</div>" + dest;
 }
 function tradeTeamBox(code) {
   var b = book(code), L = S.L;
   var players = b.players.slice().sort(function (x, y) { return (y.sal[0] || 0) - (x.sal[0] || 0); });
   var pl = players.map(function (x) {
-    var moving = !!moveOf("player", x.name, code);
-    return '<div class="asset' + (moving ? " moving" : "") + '"><span class="nm">' + pbtn(x.name) +
-      (x.c && /MAX/.test(x.c.st[0]) ? '<span class="st ' + esc(x.c.st[0]) + '">' + esc(x.c.st[0]) + "</span>" : "") + '</span><span class="sal">' +
-      (x.c ? money(x.sal[0]) : '<span class="flag bad">No contract</span>') + "</span>" + destSelect("player", x.name, code) + "</div>";
+    return assetCard("player", x.name, code, esc(x.name) + "<small>" + esc(x.c ? x.c.nba : "") + " · " + esc(SLOT[x.slot] || "") + "</small>",
+      x.c ? salCell(x.c, 0) : '<span class="flag bad">No contract</span>');
   }).join("");
-  var pk = (L.picks[code] || []).map(function (p) {
-    var moving = !!moveOf("pick", p.label, code);
-    return '<div class="asset' + (moving ? " moving" : "") + '"><span class="nm">' + esc(p.label) + "</span>" + destSelect("pick", p.label, code) + "</div>";
-  }).join("");
-  var cash = S.trade.moves.filter(function (m) { return m.type === "cash" && m.from === code; }).map(function (m, i) {
-    return '<div class="asset moving"><span class="nm">' + money(m.amt) + "M cash → " + esc(m.to) + '</span><button class="btn sm" data-act="rmCash" data-from="' + esc(code) +
-      '" data-to="' + esc(m.to) + '" data-amt="' + m.amt + '">Remove</button></div>';
+  var pk = (L.picks[code] || []).map(function (p) { return assetCard("pick", p.label, code, esc(p.label)); }).join("");
+  var cash = S.trade.moves.filter(function (m) { return m.type === "cash" && m.from === code; }).map(function (m) {
+    return '<div class="asset moving"' + teamStyle(m.to) + '><div class="asset-main"><span class="tick">$</span><span class="nm">' + money(m.amt) + "M cash</span>" +
+      '<span class="to">→ ' + esc(m.to) + '</span></div><button class="info" data-act="rmCash" data-from="' + esc(code) + '" data-to="' + esc(m.to) + '" data-amt="' + m.amt + '" title="Remove" aria-label="Remove cash">×</button></div>';
   }).join("");
   var others = S.trade.teams.filter(function (c) { return c !== code; });
-  return '<div class="box tbox"' + teamStyle(code) + '><div class="row"><b>' + swatch(code) + esc(b.team.name) + "</b><span>" + money(b.payroll[0]) + " " + tierChip(b.payroll[0]) + "</span></div>" +
-    '<h3 class="sec">Players</h3>' + pl +
-    (pk ? '<details class="more"><summary>Draft picks (' + (L.picks[code] || []).length + ")</summary>" + pk + "</details>" : "") +
-    '<h3 class="sec" style="margin-top:12px">Cash · balance ' + signed(b.cash) + "</h3>" + cash +
-    '<div class="row start" style="margin-top:6px"><input type="number" min="0.5" step="0.5" inputmode="decimal" placeholder="$M" style="width:84px" data-role="cashAmt" data-from="' + esc(code) + '">' +
-    '<select data-role="cashTo" data-from="' + esc(code) + '">' + others.map(function (c) { return opt(c, "→ " + c); }).join("") + "</select>" +
+  var sending = S.trade.moves.filter(function (m) { return m.from === code; }).length;
+  return '<div class="box tbox"' + teamStyle(code) + '><div class="tbox-head"><span class="badge-team sm">' + esc(code) + '</span><div class="grow"><b>' + esc(b.team.name) + "</b>" +
+    '<span class="muted small">' + money(b.payroll[0]) + "M " + tierChip(b.payroll[0]) + (sending ? " sending " + sending : "") + "</span></div>" +
+    '<button class="x sm" data-act="tradeRemove" data-code="' + esc(code) + '" title="Remove team" aria-label="Remove ' + esc(b.team.name) + '">×</button></div>' +
+    '<h3 class="sec">Players</h3><div class="assets">' + pl + "</div>" +
+    (pk ? '<h3 class="sec" style="margin-top:14px">Draft picks</h3><div class="assets">' + pk + "</div>" : "") +
+    '<h3 class="sec" style="margin-top:14px">Cash · balance ' + signed(b.cash) + "</h3>" + (cash ? '<div class="assets">' + cash + "</div>" : "") +
+    '<div class="cashrow"><input type="number" min="0.5" step="0.5" inputmode="decimal" placeholder="$M" data-role="cashAmt" data-from="' + esc(code) + '">' +
+    (others.length > 1 ? '<select data-role="cashTo" data-from="' + esc(code) + '">' + others.map(function (c) { return opt(c, "→ " + c); }).join("") + "</select>"
+      : '<input type="hidden" data-role="cashTo" data-from="' + esc(code) + '" value="' + esc(others[0] || "") + '"><span class="muted small">→ ' + esc(others[0] || "another team") + "</span>") +
     '<button class="btn sm" data-act="addCash" data-from="' + esc(code) + '">Add cash</button></div></div>';
+}
+function teamPicker() {
+  var T = S.trade, full = T.teams.length >= 4;
+  return '<div class="box"><div class="panel-head"><h3>Teams in the trade</h3><span class="muted small">' + T.teams.length + " of 2–4 picked</span></div>" +
+    '<div class="tpicker">' + S.L.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (t) {
+      var on = T.teams.indexOf(t.code) >= 0;
+      return '<button class="tpk' + (on ? " on" : "") + '"' + teamStyle(t.code) + ' data-act="tradeToggle" data-code="' + esc(t.code) + '"' + (!on && full ? " disabled" : "") +
+        ' aria-pressed="' + on + '"><b>' + esc(t.code) + "</b><span>" + esc(t.name) + "</span></button>";
+    }).join("") + "</div></div>";
 }
 function tradeResults() {
   var T = S.trade, L = S.L;
   if (T.teams.length < 2) return '<div class="box empty">Pick at least two teams.</div>';
-  if (!T.moves.length) return '<div class="box empty">Choose who goes where. Every player and pick has a "Keep / → team" menu.</div>';
+  if (!T.moves.length) return '<div class="box empty">Tap the players, picks or cash each team sends.</div>';
   var r = LM.evaluateTrade(L, T);
   var head = '<div class="box ' + (r.legal ? "v-ok" : "v-no") + '"><div class="verdict ' + (r.legal ? "ok" : "no") + '">' + (r.legal ? "✓ Legal trade" : "✗ Not legal") + "</div>" +
     (r.problems.length ? '<ul class="issues err">' + r.problems.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
@@ -546,17 +568,11 @@ function tradeResults() {
 function pageTrade(arg) {
   if (arg) { var d = tradeDecode(arg); if (d) S.trade = d; }
   var T = S.trade;
-  var slots = Math.min(4, Math.max(2, T.teams.length + 1));
-  var pickers = "";
-  for (var i = 0; i < slots; i++) {
-    pickers += '<label class="f">Team ' + (i + 1) + '<select data-act="tradeTeam" data-i="' + i + '">' +
-      teamOptions(T.teams[i] || "", i < 2 ? "Pick a team" : "Add a team (optional)") + "</select></label>";
-  }
   return '<div class="pagehead"><div><h1>Trade machine</h1><div class="sub">2–4 teams · players, picks and cash · checks every cap rule</div></div>' +
     '<div class="row start"><button class="btn" data-act="share">Copy share link</button><button class="btn" data-act="clearTrade">Clear</button></div></div>' +
     (S.shareUrl ? '<div class="box"><label class="f">Share link<input type="text" readonly id="shareUrl" value="' + esc(S.shareUrl) + '"></label></div>' : "") +
-    '<div class="box"><div class="form">' + pickers + "</div></div>" +
-    '<div class="tm-teams">' + T.teams.map(tradeTeamBox).join("") + "</div>" +
+    teamPicker() +
+    (T.teams.length ? '<div class="tm-teams">' + T.teams.map(tradeTeamBox).join("") + "</div>" : "") +
     '<h2 class="sec">Result</h2><div id="tradeResult">' + tradeResults() + "</div>";
 }
 function tradeChanged() {
@@ -813,19 +829,35 @@ document.addEventListener("click", function (ev) {
     $("plTable").innerHTML = plTable(); return;
   }
   var b = t.closest && t.closest("button[data-act]");
+  if (b && b.getAttribute("data-act") === "download") {
+    busy(b, Export.download(S.L, LOCAL.getLog, LOCAL.getRules).then(function () { toast("Spreadsheet downloaded"); }, function (e) { toast(e.message, true); }));
+    return;
+  }
   if (!b || !view().contains(b)) return;
   var act = b.getAttribute("data-act"), A = S.admin;
   if (!armed(b)) return;
 
   switch (act) {
-    case "download":
-      busy(b, Export.download(S.L, LOCAL.getLog, LOCAL.getRules).then(function () { toast("Spreadsheet downloaded"); }, function (e) { toast(e.message, true); }));
-      break;
     case "plFilter": S.pl.f = b.getAttribute("data-v"); S.pl.limit = 150; rerender(); break;
     case "plMore": S.pl.limit += 150; $("plTable").innerHTML = plTable(); break;
     case "logMore": S.lg.n += 100; $("logList").innerHTML = logList(); break;
 
     case "toResult": window.scrollTo(0, $("tradeResult").getBoundingClientRect().top + window.scrollY - 70); break;
+    case "tradeToggle":
+      var code = b.getAttribute("data-code"), at = S.trade.teams.indexOf(code);
+      if (at >= 0) S.trade.teams.splice(at, 1); else if (S.trade.teams.length < 4) S.trade.teams.push(code);
+      tradeChanged(); break;
+    case "tradeRemove": S.trade.teams = S.trade.teams.filter(function (c) { return c !== b.getAttribute("data-code"); }); tradeChanged(); break;
+    case "tradeAsset": case "tradeDest":
+      var ty = b.getAttribute("data-type"), ky = b.getAttribute("data-key"), fr = b.getAttribute("data-from"), cur = moveOf(ty, ky, fr);
+      if (act === "tradeDest") { if (cur) cur.to = b.getAttribute("data-to"); }
+      else if (cur) S.trade.moves.splice(S.trade.moves.indexOf(cur), 1);
+      else {
+        var dest = S.trade.teams.filter(function (c) { return c !== fr; })[0];
+        if (!dest) { toast("Add another team to the trade first", true); break; }
+        var mv = { type: ty, from: fr, to: dest }; mv[ty === "player" ? "name" : "label"] = ky; S.trade.moves.push(mv);
+      }
+      tradeChanged(); break;
     case "clearTrade": S.trade = { teams: S.trade.teams.slice(0, 2), moves: [] }; tradeChanged(); break;
     case "share":
       S.shareUrl = location.href.split("#")[0].split("?")[0] + "#" + tradeEncode(S.trade);
@@ -903,18 +935,7 @@ document.addEventListener("change", function (ev) {
   var t = ev.target, act = t.getAttribute && t.getAttribute("data-act");
   if (!act || !view().contains(t)) return;
   if (act === "pickTeam") Nav.go("team/" + t.value);
-  else if (act === "tradeTeam") {
-    var i = Number(t.getAttribute("data-i")), teams = S.trade.teams.slice();
-    if (t.value && teams.indexOf(t.value) >= 0 && teams[i] !== t.value) { toast("That team is already in the trade", true); t.value = teams[i] || ""; return; }
-    if (t.value) teams[i] = t.value; else teams.splice(i, 1);
-    S.trade.teams = teams.filter(Boolean).slice(0, 4);
-    tradeChanged();
-  } else if (act === "move") {
-    var type = t.getAttribute("data-type"), key = t.getAttribute("data-key"), from = t.getAttribute("data-from");
-    S.trade.moves = S.trade.moves.filter(function (m) { return !(m.type === type && m.from === from && (type === "player" ? m.name === key : m.label === key)); });
-    if (t.value) { var m = { type: type, from: from, to: t.value }; m[type === "player" ? "name" : "label"] = key; S.trade.moves.push(m); }
-    tradeChanged();
-  } else if (act === "plTeam") { S.pl.team = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }
+  else if (act === "plTeam") { S.pl.team = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }
   else if (act === "logTeam") { S.lg.team = t.value; S.lg.n = 100; $("logList").innerHTML = logList(); }
   else if (act === "logType") { S.lg.type = t.value; S.lg.n = 100; $("logList").innerHTML = logList(); }
 });

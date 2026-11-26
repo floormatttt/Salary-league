@@ -26,7 +26,7 @@ Commissioner page: edits = commits to data/ through the GitHub API (your token)
 - **Contracts, cap holds, cash, rankings:** edit them on the Commissioner page. Each save is a commit, so you can see every change on GitHub. The page shows the change at once; the public site catches up after GitHub Pages redeploys, which takes about a minute.
 - **New adds from Sleeper:** these show up under **Commissioner → Pending** with a PENDING note. Set the salary and clear the note.
 - **Drops:** these become cap holds automatically, on the team that dropped the player.
-- **Spreadsheet:** use **Download spreadsheet** on the Standings page or in the footer. It's a read-only .xlsx with the master list, standings, a tab per team, cap holds, the cash ledger, picks, the log and the rules.
+- **Spreadsheet:** use the **Spreadsheet** button in the top bar (or the footer link). It's a read-only, color-coded .xlsx with the master list, standings, a tab per team, cap holds, the cash ledger, picks, the log and the rules.
 
 ## Commands
 | | |

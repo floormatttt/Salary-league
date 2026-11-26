@@ -376,3 +376,71 @@
   .tcard-body { padding: 12px 14px 14px; }
   .tcard-body .row b { font-size: 17px; font-variant-numeric: tabular-nums; }
   .badge-team.sm { width: 40px; height: 40px; border-radius: 11px; font-size: 12px; background: #fff; color: var(--c1); box-shadow: inset 0 -3px 0 var(--c2); }
+
+  /* ================= kinds of money (LeagueMath.moneyKind) ================= */
+  :root { --m-g: #15803d; --m-po: #2563eb; --m-to: #7c3aed; --m-max: #b45309; --m-smax: #be185d; --m-hold: #64748b; }
+  @media (prefers-color-scheme: dark) { :root { --m-g: #4ade80; --m-po: #7aa2ff; --m-to: #b794f6; --m-max: #fbbf24; --m-smax: #f472b6; --m-hold: #94a3b8; } }
+  .m-g { --mk: var(--m-g); } .m-po { --mk: var(--m-po); } .m-to { --mk: var(--m-to); }
+  .m-max { --mk: var(--m-max); } .m-smax { --mk: var(--m-smax); } .m-hold { --mk: var(--m-hold); }
+  .mny { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 7px; border-radius: 6px; font-weight: 600; color: var(--text);
+    background: color-mix(in srgb, var(--mk) 12%, transparent); box-shadow: inset 2px 0 0 var(--mk); font-variant-numeric: tabular-nums; }
+  .mny.m-g { background: color-mix(in srgb, var(--mk) 7%, transparent); }
+  .mny.m-hold { font-style: italic; color: var(--muted); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mk) 12%, transparent) 0 4px, transparent 4px 8px); }
+  .mny em { font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; color: var(--mk); }
+  .mlegend { margin: 0 0 4px; }
+  .mlegend i { width: 14px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--mk) 22%, transparent); box-shadow: inset 2px 0 0 var(--mk); }
+  .mlegend i.m-hold { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mk) 30%, transparent) 0 3px, transparent 3px 6px); }
+  .mlegend .fa { margin-right: 2px; }
+  td .st { display: none; }
+
+  /* ================= download button in the top bar ================= */
+  .dl { display: inline-flex; align-items: center; gap: 7px; flex: none; padding: 7px 12px; border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 650;
+    color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
+  .dl:hover { background: rgba(255,255,255,.16); }
+  .dl:disabled { opacity: .6; cursor: default; }
+  @media (max-width: 760px) {
+    .top-in { position: relative; }
+    .dl { position: absolute; right: 12px; top: 9px; padding: 6px 10px; }
+  }
+
+  /* ================= trade machine: pick teams, tap players ================= */
+  .tpicker { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+  .tpk { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; cursor: pointer; text-align: left; min-width: 0;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); box-shadow: inset 3px 0 0 var(--c1); }
+  .tpk b { font-size: 11.5px; font-weight: 800; letter-spacing: .02em; flex: none; }
+  .tpk span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tpk:hover { border-color: var(--c1); }
+  .tpk.on { background: var(--c1); border-color: var(--c1); color: #fff; box-shadow: inset -4px 0 0 var(--c2), 0 2px 8px color-mix(in srgb, var(--c1) 35%, transparent); }
+  .tpk.on span { color: rgba(255,255,255,.85); }
+  .tpk:disabled { opacity: .4; cursor: default; }
+  @media (max-width: 640px) { .tpicker { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); } .tpk span { display: none; } .tpk { justify-content: center; } }
+
+  .tbox-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .tbox-head b { display: block; font-size: 16px; line-height: 1.2; }
+  .tbox-head .badge-team.sm { width: 38px; height: 38px; background: var(--c1); color: #fff; box-shadow: inset 0 -3px 0 var(--c2); }
+  .x.sm { width: 28px; height: 28px; font-size: 17px; }
+  .assets { display: flex; flex-direction: column; gap: 5px; }
+  .tm-teams .asset { display: flex; align-items: stretch; gap: 0; padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--card); overflow: hidden; }
+  .tm-teams .asset + .asset { border-top: 1px solid var(--line); }
+  .asset-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 14px; color: var(--text); }
+  div.asset-main { cursor: default; }
+  .asset-main:hover { background: var(--row-hover); }
+  .asset-main .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .asset-main .nm small { display: block; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+  .asset-main .sal { flex: none; }
+  .tick { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 7px; font-size: 13px; font-weight: 800;
+    border: 1.5px dashed var(--line); color: var(--faint); }
+  .asset-main:hover .tick { border-color: var(--accent); color: var(--accent); }
+  .asset .to { flex: none; font-size: 11.5px; font-weight: 800; padding: 2px 7px; border-radius: 6px; background: var(--c1); color: #fff; box-shadow: inset -3px 0 0 var(--c2); }
+  .tm-teams .asset.moving { border-color: var(--c1); background: color-mix(in srgb, var(--c1) 8%, var(--card)); }
+  .asset.moving .tick { border: 0; background: var(--c1); color: #fff; }
+  .asset.moving .asset-main:hover { background: color-mix(in srgb, var(--c1) 12%, var(--card)); }
+  .info { flex: none; width: 34px; border: 0; border-left: 1px solid var(--line); background: none; cursor: pointer; color: var(--faint); font: italic 700 13px/1 Georgia, serif; }
+  .info:hover { color: var(--accent); background: var(--row-hover); }
+  .dests { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin: -1px 0 4px 32px; font-size: 12px; color: var(--muted); }
+  .dest { padding: 3px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-size: 11.5px; font-weight: 750; color: var(--text); box-shadow: inset 3px 0 0 var(--c1); }
+  .dest.on { background: var(--c1); border-color: var(--c1); color: #fff; }
+  .cashrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .cashrow input[type=number] { width: 84px; }
+  @media (max-width: 1140px) and (min-width: 761px) { .dl span { display: none; } .dl { padding: 7px 9px; } .nav a { padding: 0 10px; } .top-in { gap: 16px; } }
+  .tbox-head .muted.small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
