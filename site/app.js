@@ -251,10 +251,7 @@ function pageHome() {
 function homeLog() {
   var rows = S.log.rows.slice(0, 7);
   if (!rows.length) return '<div class="empty">No transactions yet.</div>';
-  return rows.map(function (r) {
-    return '<div class="ent" style="grid-template-columns:1fr"><div class="body"><span class="badge ' + logKind(r.type) + '">' + esc(r.type) + "</span><b>" + esc(r.teams) + "</b>" +
-      '<span class="muted small"> · ' + esc(r.when) + "</span><div>" + linkPlayers(r.players) + "</div></div></div>";
-  }).join("");
+  return rows.map(function (r) { return logEntry(r, true); }).join("");
 }
 function payrollChart(pays) {
   var max = S.L.limits.hardCap;
@@ -603,17 +600,41 @@ function tradeChanged() {
 
 /* ============================ transactions ============================ */
 function logKind(type) { return /trade/i.test(type) ? "Trade" : /add/i.test(type) ? "Add" : /drop/i.test(type) ? "Drop" : ""; }
-function linkPlayers(text) {
-  // "Team gets: A, B, 2029 1st (X's)  |  Team gets: C"  or a single name
-  return String(text).split(/\s+\|\s+/).map(function (part) {
-    var m = part.match(/^(.*? gets:)\s*(.*)$/);
-    if (!m) return /^\d{4} \d/.test(part) || !part.trim() ? esc(part) : pbtn(part.trim());
-    var items = m[2].split(/,\s*(?![^()]*\))/).map(function (it) {
-      it = it.trim();
-      return !it || /^\d{4} \d/.test(it) || it === "nothing" ? esc(it) : pbtn(it);
-    });
-    return "<div><b>" + esc(m[1]) + "</b> " + items.join(", ") + "</div>";
-  }).join("");
+// --- transaction entries: team-colored names, player photos, a "gets" card per side of a trade ---
+function codeOf(name) { var t = S.L.teams.filter(function (x) { return x.name === name; })[0]; return t ? t.code : ""; }
+function tname(name) {
+  var c = codeOf(name);
+  return c ? '<a class="tname tc"' + teamStyle(c) + ' href="#team/' + esc(c) + '" data-go="team/' + esc(c) + '">' + esc(name) + "</a>" : esc(name);
+}
+function teamsLine(text) {
+  return String(text || "").split(/\s*↔\s*/).map(function (n) { return tname(n.trim()); }).join('<span class="swap">⇄</span>');
+}
+function logAsset(it) {
+  it = String(it || "").trim();
+  if (!it || it === "nothing" || it === "—") return it ? '<span class="muted">' + esc(it) + "</span>" : "";
+  if (/^\d{4} \d/.test(it)) return '<span class="pickchip">' + esc(it) + "</span>";
+  return '<span class="who">' + avatar(it) + pbtn(it) + "</span>";
+}
+function logBody(r) {
+  var parts = String(r.players || "").split(/\s+\|\s+/);
+  var sides = parts.map(function (part) {
+    var m = part.match(/^(.*?) gets:\s*(.*)$/);
+    return m ? { team: m[1].trim(), items: m[2].split(/,\s*(?![^()]*\))/) } : null;
+  });
+  if (sides.length && sides.every(Boolean)) {
+    return '<div class="deal">' + sides.map(function (sd) {
+      return '<div class="side"' + teamStyle(codeOf(sd.team)) + '><div class="side-h">' + tname(sd.team) + '<span class="muted small">gets</span></div>' +
+        '<div class="side-b">' + sd.items.map(logAsset).join("") + "</div></div>";
+    }).join("") + "</div>";
+  }
+  var items = parts.map(logAsset).filter(Boolean);
+  return items.length ? '<div class="side-b">' + items.join("") + "</div>" : "";
+}
+function logEntry(r, compact) {
+  return '<div class="ent' + (compact ? " compact" : "") + '">' + (compact ? "" : '<div class="d">' + esc(r.when) + "</div>") + '<div class="body">' +
+    '<div class="ent-h"><span class="badge ' + logKind(r.type) + '">' + esc(r.type) + "</span>" + teamsLine(r.teams) +
+    (compact ? '<span class="muted small">' + esc(r.when) + "</span>" : r.status ? '<span class="chip">' + esc(r.status) + "</span>" : "") + "</div>" +
+    logBody(r) + (r.details && !compact ? '<div class="muted small" style="margin-top:6px">' + esc(r.details) + "</div>" : "") + "</div></div>";
 }
 function logList() {
   var f = S.lg, rows = S.log.rows.filter(function (r) {
@@ -622,11 +643,7 @@ function logList() {
     return true;
   });
   var shown = rows.slice(0, f.n);
-  return box("", (shown.map(function (r) {
-    return '<div class="ent"><div class="d">' + esc(r.when) + '</div><div class="body"><span class="badge ' + logKind(r.type) + '">' + esc(r.type) + "</span>" +
-      "<b>" + esc(r.teams) + "</b>" + (r.status ? ' <span class="chip">' + esc(r.status) + "</span>" : "") +
-      "<div>" + linkPlayers(r.players) + "</div>" + (r.details ? '<div class="muted small">' + esc(r.details) + "</div>" : "") + "</div></div>";
-  }).join("") || '<div class="empty">No transactions match.</div>')) +
+  return box("", (shown.map(function (r) { return logEntry(r); }).join("") || '<div class="empty">No transactions match.</div>')) +
     (rows.length > shown.length ? '<button class="more" data-act="logMore">Show more</button>' : "");
 }
 function pageLog() {

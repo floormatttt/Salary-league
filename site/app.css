@@ -460,3 +460,22 @@
   .asset.moving .pic .av { box-shadow: 0 0 0 2px var(--c1); }
   .chk { position: absolute; right: -4px; bottom: -3px; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center;
     font-size: 10px; background: var(--c1); color: #fff; box-shadow: 0 0 0 2px var(--card); }
+
+  /* ================= transactions ================= */
+  .ent-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+  .ent-h .badge { margin-right: 0; }
+  .tname { display: inline-block; padding: 2px 9px; border-radius: 7px; font-size: 13px; font-weight: 700; color: #fff; background: var(--c1);
+    box-shadow: inset -3px 0 0 var(--c2); white-space: nowrap; }
+  a.tname:hover { color: #fff; text-decoration: none; filter: brightness(1.12); }
+  .swap { color: var(--faint); font-weight: 700; }
+  .deal { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 10px; }
+  .side { border: 1px solid var(--line); border-top: 3px solid var(--c1, var(--line)); border-radius: 10px; padding: 9px 11px; background: var(--card-2); }
+  .side-h { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+  .side-b { display: flex; flex-wrap: wrap; gap: 7px 14px; align-items: center; margin-top: 8px; }
+  .side .side-b { margin-top: 0; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .side-b .who { font-size: 14px; }
+  .side-b .av { width: 28px; height: 28px; }
+  .pickchip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 7px; background: var(--chip); color: var(--text); border: 1px dashed color-mix(in srgb, var(--text) 25%, var(--line)); }
+  .ent.compact { grid-template-columns: 1fr; padding: 12px 0; }
+  .ent.compact .deal { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 520px) { .ent.compact .deal, .deal { grid-template-columns: 1fr; } }
