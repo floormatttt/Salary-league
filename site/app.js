@@ -1,7 +1,7 @@
 /* League site: routing, pages, trade machine, commissioner tools.
  * Data: data/*.json (this repo, kept current by the Sleeper sync and commissioner
  * edits) + live Sleeper rosters/records/picks + ESPN game logs, all fetched in
- * the browser. Routes (hash): "" standings · team/ATL · players ·
+ * the browser. Routes (hash): "" home · contracts · standings · team/ATL ·
  * trade[/<encoded>] · log · rules · admin.   ?n=Name opens a player card. */
 var LM = LeagueMath;
 
@@ -74,7 +74,7 @@ function api(fn) {
 
 var S = {
   L: null, books: {}, rIdx: null, log: null, rules: null, hash: "",
-  pl: { q: "", f: "all", limit: 150 },
+  pl: { q: "", f: "all", team: "", sort: "s0", asc: false, limit: 150 },
   lg: { team: "", type: "", n: 100 },
   trade: { teams: [], moves: [] }, shareUrl: "",
   admin: { tab: "pending", edit: null, q: "", log: null, waive: null },
@@ -131,8 +131,6 @@ function toast(msg, bad) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(function () { el.style.display = "none"; }, bad ? 7000 : 3500);
 }
-function store(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
-function recall(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
 
 /* ============================ routing ============================ */
 var Nav = {
@@ -148,13 +146,15 @@ var Nav = {
   },
 };
 
-var PAGES = { standings: pageStandings, team: pageTeam, players: pagePlayers, trade: pageTrade, log: pageLog, rules: pageRules, admin: pageAdmin };
+var PAGES = { home: pageHome, contracts: pageContracts, standings: pageStandings, team: pageTeam, trade: pageTrade, log: pageLog, rules: pageRules, admin: pageAdmin };
+var ALIAS = { players: "contracts" };   // old links
 
 function route(h, keepScroll) {
   h = String(h || "").replace(/^#/, "");
   S.hash = h;
-  var i = h.indexOf("/"), page = (i < 0 ? h : h.slice(0, i)) || "standings", arg = i < 0 ? "" : h.slice(i + 1);
-  if (!PAGES[page]) page = "standings";
+  var i = h.indexOf("/"), page = (i < 0 ? h : h.slice(0, i)) || "home", arg = i < 0 ? "" : h.slice(i + 1);
+  page = ALIAS[page] || page;
+  if (!PAGES[page]) page = "home";
   Array.prototype.forEach.call(document.querySelectorAll("#nav a"), function (a) {
     a.classList.toggle("on", a.getAttribute("data-page") === page);
   });
@@ -166,6 +166,89 @@ function rerender() { route(S.hash, true); }
 function footer() {
   return '<div class="foot">Rosters and records are live from Sleeper' + (S.L && S.L.lastSync ? " · league data last changed " + esc(when(S.L.lastSync)) : "") +
     ' · <button class="linkbtn" data-act="download">Download spreadsheet</button></div>';
+}
+function record(t) { return t.w + "-" + t.l + (t.t ? "-" + t.t : ""); }
+function rankBadge(t) { return '<span class="rk' + (t.rank == null ? " none" : t.rank <= 3 ? " top" : "") + '">' + (t.rank == null ? "" : t.rank) + "</span>"; }
+function tcode(code) { return code ? '<a class="tcode tc"' + teamStyle(code) + ' href="#team/' + esc(code) + '" data-go="team/' + esc(code) + '">' + esc(code) + "</a>" : '<span class="muted">—</span>'; }
+function swatch(code) { return '<span class="swatch"' + teamStyle(code) + "></span>"; }
+// Payroll bar scaled to the hard cap, with a tick at each level line
+var LINES = [150, 200, 250];
+function meter(p, lg) {
+  var max = S.L.limits.hardCap, pct = Math.max(0, Math.min(100, p / max * 100));
+  return '<div class="meter' + (lg ? " lg" : "") + " t-" + LM.tierOf(p).key + '" role="img" aria-label="' + esc(money(p) + "M of $" + max + "M") + '"><i style="width:' + pct.toFixed(1) + '%"></i>' +
+    LINES.map(function (v) { return '<s style="left:' + (v / max * 100).toFixed(1) + '%"></s>'; }).join("") + "</div>";
+}
+function meterScale() {
+  var max = S.L.limits.hardCap;
+  return '<div class="scale"><span style="left:0;transform:none">$0</span>' + LINES.concat([max]).map(function (v) {
+    return '<span style="left:' + (v / max * 100).toFixed(1) + '%">$' + v + "</span>"; }).join("") + "</div>";
+}
+function tierLegend() {
+  var labels = [["cap", "Under cap ≤$150"], ["first", "1st apron ≤$200"], ["second", "2nd apron ≤$250"], ["tax", "Luxury tax ≤$300"]];
+  return '<div class="legend">' + labels.map(function (l) { return '<span class="t-' + l[0] + '"><i></i>' + l[1] + "</span>"; }).join("") + "</div>";
+}
+
+/* ============================ home ============================ */
+function pageHome() {
+  var L = S.L, n = L.teams.length;
+  var pays = L.teams.map(function (t) { return { t: t, p: book(t.code).payroll[0] }; });
+  var avg = pays.reduce(function (s, x) { return s + x.p; }, 0) / (n || 1);
+  var low = pays.slice().sort(function (a, b) { return a.p - b.p; })[0];
+  var top = L.contracts.filter(function (c) { return !c.hold && typeof c.sal[0] === "number"; }).sort(function (a, b) { return b.sal[0] - a.sal[0]; });
+  var pending = L.contracts.filter(function (c) { return /pending/i.test(c.det); }).length;
+  var over2 = pays.filter(function (x) { return x.p > 200; }).length;
+
+  var hero = '<section class="hero"><div class="hero-ball"></div><div class="eyebrow">' + esc(L.season) + " season</div><h1>Salary League</h1>" +
+    '<div class="sub">' + n + " teams on Sleeper under a $150M cap, two aprons, a luxury tax line and a $" + L.limits.hardCap + "M hard max.</div>" +
+    '<div class="actions"><a class="btn pri" href="#contracts" data-go="contracts">Browse contracts</a><a class="btn" href="#trade" data-go="trade">Trade machine</a>' +
+    '<a class="btn" href="#standings" data-go="standings">Standings</a></div></section>';
+
+  var kpis = '<div class="kpis">' +
+    '<div class="kpi"><div class="v">' + money(avg) + '</div><div class="k">Average payroll</div></div>' +
+    '<div class="kpi"><div class="v">' + over2 + " / " + n + '</div><div class="k">Teams over the 1st apron</div></div>' +
+    '<div class="kpi"><div class="v">' + (low ? money(low.p) : "—") + '</div><div class="k">Lowest payroll · ' + (low ? teamLink(low.t.code) : "") + "</div></div>" +
+    '<div class="kpi"><div class="v">' + pending + '</div><div class="k">Contracts pending</div></div></div>';
+
+  var ranks = L.teams.slice(0, 10).map(function (t) {
+    var p = book(t.code).payroll[0];
+    return '<div class="list-row">' + rankBadge(t) + swatch(t.code) + '<div class="nm">' + teamLink(t.code) + '<span class="muted small">' + esc(t.owner) + " · " + record(t) + "</span></div>" +
+      '<div class="num">' + money(p) + "</div>" + tierChip(p) + "</div>";
+  }).join("");
+  var left = '<div class="box"><div class="panel-head"><h3>Power rankings</h3><a href="#standings" data-go="standings">Full standings →</a></div>' + ranks + "</div>";
+
+  if (!S.log) api("getLog").then(function (d) { S.log = d; var el = $("homeLog"); if (el) el.innerHTML = homeLog(); }, function () {});
+  var right = '<div class="box"><div class="panel-head"><h3>Latest moves</h3><a href="#log" data-go="log">All transactions →</a></div><div id="homeLog">' + (S.log ? homeLog() : loading()) + "</div></div>" +
+    '<div class="box"><div class="panel-head"><h3>Biggest contracts · ' + esc(L.season) + '</h3><a href="#contracts" data-go="contracts">All contracts →</a></div>' +
+    top.slice(0, 6).map(function (c) {
+      var r = rosterIdx()[LM.norm(c.n)];
+      return '<div class="list-row"><div class="nm">' + pbtn(c.n) + '<span class="muted small">' + esc(c.nba) + (r ? " · " + esc(teamName(r.code)) : " · free agent") + "</span></div>" +
+        '<div class="num">' + salCell(c, 0) + "</div></div>";
+    }).join("") + "</div>";
+
+  return hero + kpis + '<div class="home-grid"><div>' + left + payrollChart(pays) + "</div><div>" + right + "</div></div>";
+}
+function homeLog() {
+  var rows = S.log.rows.slice(0, 7);
+  if (!rows.length) return '<div class="empty">No transactions yet.</div>';
+  return rows.map(function (r) {
+    return '<div class="ent" style="grid-template-columns:1fr"><div class="body"><span class="badge ' + logKind(r.type) + '">' + esc(r.type) + "</span><b>" + esc(r.teams) + "</b>" +
+      '<span class="muted small"> · ' + esc(r.when) + "</span><div>" + linkPlayers(r.players) + "</div></div></div>";
+  }).join("");
+}
+function payrollChart(pays) {
+  var max = S.L.limits.hardCap;
+  var top = Math.max(max, Math.max.apply(null, pays.map(function (x) { return x.p; })));
+  var pos = function (v) { return (Math.max(0, v) / top * 100).toFixed(1) + "%"; };
+  var rows = pays.slice().sort(function (a, b) { return b.p - a.p; }).map(function (x) {
+    var tier = LM.tierOf(x.p);
+    return '<div class="lbl">' + tcode(x.t.code) + "</div>" +
+      '<div class="bar t-' + tier.key + '" data-tip="' + esc(x.t.name + " · " + money(x.p) + "M · " + tier.label) + '"><i style="width:' + pos(x.p) + '"></i>' +
+      LINES.concat([max]).map(function (v) { return '<s style="left:' + pos(v) + '"></s>'; }).join("") + "</div>" +
+      '<div class="val">' + money(x.p) + "</div>";
+  }).join("");
+  var axis = '<div></div><div class="axis">' + [0].concat(LINES, [max]).map(function (v) { return '<span style="left:' + pos(v) + '">$' + v + "</span>"; }).join("") + "</div><div></div>";
+  return '<div class="box"><div class="panel-head"><h3>Payroll by team · ' + esc(S.L.season) + '</h3><a href="#standings" data-go="standings">Table view →</a></div>' +
+    '<div class="pchart">' + rows + axis + "</div>" + tierLegend() + "</div>";
 }
 
 /* ============================ player popup ============================ */
@@ -191,32 +274,44 @@ function pageStandings() {
   var L = S.L;
   var rows = L.teams.map(function (t) {
     var b = book(t.code), p = b.payroll[0];
-    return '<tr><td><div class="tm"><span class=rk>' + (t.rank == null ? "" : t.rank) + "</span><div>" + teamLink(t.code) +
+    return '<tr><td><div class="tm">' + rankBadge(t) + swatch(t.code) + "<div>" + teamLink(t.code) +
       '<div class="muted small">' + esc(t.owner) + "</div></div></div></td>" +
-      "<td><b>" + money(p) + "</b></td><td class=l>" + tierChip(p) + "</td><td>" + t.w + "-" + t.l + (t.t ? "-" + t.t : "") + "</td><td>" + f1(t.pf) +
-      '</td><td class="' + cls(b.cash) + '">' + (b.cash ? signed(b.cash) : "—") +
-      "</td><td>" + b.maxes + "/" + L.limits.maxes + "</td><td>" + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
+      "<td><b>" + record(t) + "</b></td><td>" + f1(t.pf) + '</td><td class="l"><div class="paycell"><b>' + money(p) + "</b>" + meter(p) + "</div></td><td class=l>" + tierChip(p) +
+      '</td><td class="' + (b.cash ? cls(b.cash) : "dim") + '">' + (b.cash ? signed(b.cash) : "—") +
+      '</td><td class="' + (b.maxes ? "" : "dim") + '">' + b.maxes + "/" + L.limits.maxes + '</td><td class="' + (b.smaxes ? "" : "dim") + '">' + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
-  return '<div class="pagehead"><div><h1>Standings</h1><div class="sub">' + esc(L.season) + " · ranked by the commissioners · payroll includes cap holds and cash</div></div>" +
-    '<button class="btn" data-act="download">Download spreadsheet</button></div>' +
-    '<div class="tbl"><table><tr><th>Team</th><th>Payroll</th><th class=l>Level</th><th>W-L-T</th><th>PF</th><th>Cash</th><th>Max</th><th>Supermax</th></tr>' +
-    rows + "</table></div>";
+  return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">Ranked by the commissioners · payroll includes cap holds and cash</div></div>' +
+    '<button class="btn hide-sm" data-act="download">Download spreadsheet</button></div>' +
+    '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th>Max</th><th>Supermax</th></tr>' +
+    rows + "</table></div>" + tierLegend();
 }
 
 /* ============================ team page ============================ */
+function pageTeams() {
+  var cards = S.L.teams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (t) {
+    var p = book(t.code).payroll[0];
+    return '<a class="tcard"' + teamStyle(t.code) + ' href="#team/' + esc(t.code) + '" data-go="team/' + esc(t.code) + '">' +
+      '<div class="tcard-top"><span class="badge-team sm">' + esc(t.code) + '</span><div class="grow"><b>' + esc(t.name) + '</b><span>' + esc(t.owner) + "</span></div>" +
+      '<span class="rec">' + record(t) + "</span></div>" +
+      '<div class="tcard-body"><div class="row" style="margin-bottom:6px"><b>' + money(p) + "</b>" + tierChip(p) + "</div>" + meter(p) + "</div></a>";
+  }).join("");
+  return '<div class="pagehead"><div><div class="eyebrow">' + esc(S.L.season) + '</div><h1>Teams</h1><div class="sub">Pick a team for its roster, contracts, cap room and draft picks</div></div></div>' +
+    '<div class="tgrid">' + cards + "</div>";
+}
 function pageTeam(code) {
   var L = S.L;
-  var t = LM.teamByCode(L, code) || LM.teamByCode(L, recall("slTeam")) || L.teams[0];
-  store("slTeam", t.code);
+  var t = LM.teamByCode(L, code);
+  if (!t) return pageTeams();
   var b = book(t.code), p = b.payroll[0], n = L.seasons.length;
   var lim = L.limits;
   var space = function (line) { var v = line - p; return '<b class="' + cls(v) + '">' + money(v) + "</b>"; };
-  var head = '<div class="pagehead"><div><h1>' + esc(t.name) + '</h1><div class="sub">' + esc(t.owner) + " · " + t.w + "-" + t.l + (t.t ? "-" + t.t : "") +
-    " · " + f1(t.pf) + " PF" + (t.rank != null ? " · ranked #" + t.rank : "") + "</div></div>" +
+  var head = '<div class="pagehead team-banner"' + teamStyle(t.code) + '><div class="tm"><div class="badge-team">' + esc(t.code) + "</div><div><h1>" + esc(t.name) + '</h1><div class="sub">' + esc(t.owner) + " · " + record(t) +
+    " · " + f1(t.pf) + " PF" + (t.rank != null ? " · ranked #" + t.rank : "") + "</div></div></div>" +
     '<select data-act="pickTeam" aria-label="Team">' + teamOptions(t.code) + "</select></div>";
-  var statsHtml = '<div class="box"><div class="stats">' +
-    '<div class="stat"><b>' + money(p) + "</b><span>Payroll " + esc(L.season) + "</span></div>" +
-    '<div class="stat"><b>' + tierChip(p) + "</b><span>Level</span></div>" +
+  var statsHtml = '<div class="box"><div class="team-hero" style="margin-bottom:16px"><div><div class="muted small" style="font-weight:600">Payroll ' + esc(L.season) + "</div>" +
+    '<div class="big">' + money(p) + "<small>M</small></div><div style=\"margin-top:8px\">" + tierChip(p) + "</div></div>" +
+    "<div>" + meter(p, true) + meterScale() + "</div></div>" +
+    '<div class="stats">' +
     '<div class="stat">' + space(150) + "<span>Room to 1st apron</span></div>" +
     '<div class="stat">' + space(200) + "<span>Room to 2nd apron</span></div>" +
     '<div class="stat">' + space(250) + "<span>Room to luxury tax</span></div>" +
@@ -289,35 +384,68 @@ function playerRows() {
   });
   return (S.plRows = rows);
 }
-var PL_FILTERS = [["all", "All"], ["rostered", "Rostered"], ["fa", "Free agents"], ["holds", "Cap holds"], ["pending", "Pending contracts"]];
+var PL_FILTERS = [["all", "All"], ["rostered", "Rostered"], ["fa", "Free agents"], ["holds", "Cap holds"], ["pending", "Pending"]];
+function plKind(r, f) {
+  if (f === "rostered") return r.rostered;
+  if (f === "fa") return !(r.rostered || r.hold || r.pending);
+  if (f === "holds") return r.hold;
+  if (f === "pending") return r.pending;
+  return true;
+}
 function plFiltered() {
-  var q = S.pl.q.trim().toLowerCase(), qn = LM.norm(q), f = S.pl.f;
-  return playerRows().filter(function (r) {
-    if (f === "rostered" && !r.rostered) return false;
-    if (f === "fa" && (r.rostered || r.hold || r.pending)) return false;
-    if (f === "holds" && !r.hold) return false;
-    if (f === "pending" && !r.pending) return false;
+  var q = S.pl.q.trim().toLowerCase(), qn = LM.norm(q), f = S.pl.f, team = S.pl.team;
+  var rows = playerRows().filter(function (r) {
+    if (!plKind(r, f)) return false;
+    if (team && r.team !== team) return false;
     return !q || r.key.indexOf(q) >= 0 || (qn && r.key.indexOf(qn) >= 0) || (r.team && r.team.toLowerCase() === q);
   });
+  var k = S.pl.sort, asc = S.pl.asc;
+  if (k) {
+    var val = function (r) {
+      if (k === "n") return r.n.toLowerCase();
+      if (k === "nba") return r.c ? r.c.nba : "";
+      if (k === "team") return r.team || "";
+      var v = r.c ? r.c.sal[Number(k.slice(1))] : null;
+      return typeof v === "number" ? v : null;
+    };
+    rows = rows.map(function (r, i) { return { r: r, v: val(r), i: i }; }).sort(function (a, b) {
+      if (a.v === b.v) return a.i - b.i;
+      if (a.v === null || a.v === "") return 1;      // blanks always last
+      if (b.v === null || b.v === "") return -1;
+      var d = a.v < b.v ? -1 : 1;
+      return asc ? d : -d;
+    }).map(function (x) { return x.r; });
+  }
+  return rows;
+}
+function sortTh(k, label, l) {
+  var on = S.pl.sort === k;
+  return '<th class="sort' + (l ? " l" : "") + (on ? " on" + (S.pl.asc ? " asc" : "") : "") + '" data-act="plSort" data-k="' + k + '" title="Sort">' + label + "</th>";
 }
 function plTable() {
   var rows = plFiltered(), L = S.L;
   var shown = rows.slice(0, S.pl.limit);
   var body = shown.map(function (r) {
-    return '<tr><td class="name">' + pbtn(r.n) + (r.missing ? '<span class="flag bad">No contract</span>' : "") + (r.pending ? '<span class="flag">Pending</span>' : "") +
-      '</td><td class="l muted">' + esc(r.c ? r.c.nba : "") + '</td><td class="l">' + (r.team ? teamLink(r.team, r.team) + (r.hold ? ' <span class="muted small">hold</span>' : "") : '<span class="muted">—</span>') + "</td>" +
-      L.seasons.map(function (_, i) { return "<td>" + salCell(r.c, i) + "</td>"; }).join("") + "</tr>";
+    return '<tr><td class="name">' + pbtn(r.n, r.hold ? plain(r.n) : "") + (r.missing ? '<span class="flag bad">No contract</span>' : "") + (r.pending ? '<span class="flag">Pending</span>' : "") +
+      (r.hold ? '<span class="flag bad">Cap hold</span>' : "") +
+      '</td><td class="l muted">' + esc(r.c ? r.c.nba : "") + '</td><td class="l">' + tcode(r.team) + "</td>" +
+      L.seasons.map(function (_, i) { var s = salCell(r.c, i); return "<td" + (s ? "" : ' class="dim"') + ">" + (s || "·") + "</td>"; }).join("") + "</tr>";
   }).join("");
-  return '<div class="muted small" style="margin:0 2px 6px">' + rows.length + " player" + (rows.length === 1 ? "" : "s") + "</div>" +
-    '<div class="tbl"><table><tr><th>Player</th><th class=l>NBA</th><th class=l>Team</th>' + L.seasons.map(function (s) { return "<th>" + esc(s) + "</th>"; }).join("") + "</tr>" +
+  return '<div class="tbl"><table><tr>' + sortTh("n", "Player") + sortTh("nba", "NBA", 1) + sortTh("team", "Team", 1) +
+    L.seasons.map(function (s, i) { return sortTh("s" + i, esc(s)); }).join("") + "</tr>" +
     (body || '<tr><td colspan="10" class="empty">Nobody matches.</td></tr>') + "</table></div>" +
+    '<div class="muted small" style="margin:8px 2px 0">Showing ' + shown.length + " of " + rows.length + " · tap a column to sort · tap a name for the player card</div>" +
     (rows.length > shown.length ? '<button class="more" data-act="plMore">Show ' + Math.min(150, rows.length - shown.length) + " more</button>" : "");
 }
-function pagePlayers() {
-  return '<div class="pagehead"><div><h1>Players</h1><div class="sub">Every Master list contract plus anyone rostered without one</div></div></div>' +
-    '<div class="row"><input type="search" class="grow" id="plq" placeholder="Search a player or NBA team" value="' + esc(S.pl.q) + '" autocomplete="off"></div>' +
-    '<div class="seg" style="margin-bottom:10px">' + PL_FILTERS.map(function (f) {
-      return '<button data-act="plFilter" data-v="' + f[0] + '" class="' + (S.pl.f === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") + "</div>" +
+function pageContracts() {
+  var all = playerRows();
+  var counts = {}; PL_FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return plKind(r, f[0]); }).length; });
+  return '<div class="pagehead"><div><div class="eyebrow">' + esc(S.L.season) + '</div><h1>Contracts</h1><div class="sub">Every contract on the Master list, plus anyone rostered without one</div></div>' +
+    '<button class="btn hide-sm" data-act="download">Download spreadsheet</button></div>' +
+    '<div class="toolbar"><div class="search"><input type="search" id="plq" placeholder="Search players or NBA teams" value="' + esc(S.pl.q) + '" autocomplete="off" aria-label="Search"></div>' +
+    '<select data-act="plTeam" aria-label="League team">' + teamOptions(S.pl.team, "All league teams") + "</select></div>" +
+    '<div class="seg" style="margin-bottom:12px">' + PL_FILTERS.map(function (f) {
+      return '<button data-act="plFilter" data-v="' + f[0] + '" class="' + (S.pl.f === f[0] ? "on" : "") + '">' + f[1] + '<span class="n">' + counts[f[0]] + "</span></button>"; }).join("") + "</div>" +
     '<div id="plTable">' + plTable() + "</div>";
 }
 
@@ -369,7 +497,7 @@ function tradeTeamBox(code) {
       '" data-to="' + esc(m.to) + '" data-amt="' + m.amt + '">Remove</button></div>';
   }).join("");
   var others = S.trade.teams.filter(function (c) { return c !== code; });
-  return '<div class="box"><div class="row"><b>' + esc(b.team.name) + "</b><span>" + money(b.payroll[0]) + " " + tierChip(b.payroll[0]) + "</span></div>" +
+  return '<div class="box tbox"' + teamStyle(code) + '><div class="row"><b>' + swatch(code) + esc(b.team.name) + "</b><span>" + money(b.payroll[0]) + " " + tierChip(b.payroll[0]) + "</span></div>" +
     '<h3 class="sec">Players</h3>' + pl +
     (pk ? '<details class="more"><summary>Draft picks (' + (L.picks[code] || []).length + ")</summary>" + pk + "</details>" : "") +
     '<h3 class="sec" style="margin-top:12px">Cash · balance ' + signed(b.cash) + "</h3>" + cash +
@@ -382,7 +510,7 @@ function tradeResults() {
   if (T.teams.length < 2) return '<div class="box empty">Pick at least two teams.</div>';
   if (!T.moves.length) return '<div class="box empty">Choose who goes where. Every player and pick has a "Keep / → team" menu.</div>';
   var r = LM.evaluateTrade(L, T);
-  var head = '<div class="box"><div class="verdict ' + (r.legal ? "ok" : "no") + '">' + (r.legal ? "✓ Legal trade" : "✗ Not legal") + "</div>" +
+  var head = '<div class="box ' + (r.legal ? "v-ok" : "v-no") + '"><div class="verdict ' + (r.legal ? "ok" : "no") + '">' + (r.legal ? "✓ Legal trade" : "✗ Not legal") + "</div>" +
     (r.problems.length ? '<ul class="issues err">' + r.problems.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
     (r.warnings.length ? '<ul class="issues" style="color:var(--warn)">' + r.warnings.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
     '<p class="muted small" style="margin:8px 0 0">Apron level is judged on payroll before the trade. Commissioners still vote (3-2) on every trade.</p></div>';
@@ -678,6 +806,12 @@ document.addEventListener("click", function (ev) {
   var g = t.closest && t.closest("[data-go]");
   if (g) { ev.preventDefault(); if ($("modal").classList.contains("open")) closePlayer(); Nav.go(g.getAttribute("data-go")); return; }
   if (t.id === "modal" || t.id === "modalClose") { closePlayer(); return; }
+  var th = t.closest && t.closest("th[data-act=plSort]");
+  if (th) {
+    var k = th.getAttribute("data-k");
+    if (S.pl.sort === k) S.pl.asc = !S.pl.asc; else { S.pl.sort = k; S.pl.asc = k === "n" || k === "nba" || k === "team"; }
+    $("plTable").innerHTML = plTable(); return;
+  }
   var b = t.closest && t.closest("button[data-act]");
   if (!b || !view().contains(b)) return;
   var act = b.getAttribute("data-act"), A = S.admin;
@@ -780,7 +914,8 @@ document.addEventListener("change", function (ev) {
     S.trade.moves = S.trade.moves.filter(function (m) { return !(m.type === type && m.from === from && (type === "player" ? m.name === key : m.label === key)); });
     if (t.value) { var m = { type: type, from: from, to: t.value }; m[type === "player" ? "name" : "label"] = key; S.trade.moves.push(m); }
     tradeChanged();
-  } else if (act === "logTeam") { S.lg.team = t.value; S.lg.n = 100; $("logList").innerHTML = logList(); }
+  } else if (act === "plTeam") { S.pl.team = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }
+  else if (act === "logTeam") { S.lg.team = t.value; S.lg.n = 100; $("logList").innerHTML = logList(); }
   else if (act === "logType") { S.lg.type = t.value; S.lg.n = 100; $("logList").innerHTML = logList(); }
 });
 
@@ -799,6 +934,20 @@ document.addEventListener("submit", function (ev) {
   busy(btn, Admin.signIn($("pass").value).then(function (who) { toast("Signed in as " + who); rerender(); },
     function (e) { $("loginMsg").textContent = e.message; }));
 });
+
+// Hover tooltips for chart marks (data-tip)
+(function () {
+  var tip = null;
+  document.addEventListener("mousemove", function (ev) {
+    var el = ev.target.closest && ev.target.closest("[data-tip]");
+    if (!el) { if (tip) tip.style.display = "none"; return; }
+    if (!tip) { tip = document.createElement("div"); tip.className = "tip"; document.body.appendChild(tip); }
+    tip.textContent = el.getAttribute("data-tip");
+    tip.style.display = "";
+    var x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (ev.clientY + 16) + "px";
+  });
+})();
 
 document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && $("modal").classList.contains("open")) closePlayer(); });
 

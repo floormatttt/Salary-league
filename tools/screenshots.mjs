@@ -70,7 +70,7 @@ const trade = enc({ t: ["ATL", "BOS", "MIA"], m: [["p", pl("ATL", 0), "ATL", "BO
   ["k", L.picks.ATL[0].label, "ATL", "MIA"], ["c", 3, "BOS", "ATL"]] });
 
 const SHOTS = [
-  ["standings", ""], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["players", "#players"], ["trade", "#" + trade], ["trade-empty", "#trade"],
+  ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["trade", "#" + trade], ["trade-empty", "#trade"],
   ["log", "#log"], ["rules", "#rules"], ["admin-login", "#admin"],
   ["admin-pending", "#admin", { admin: true }], ["admin-holds", "#admin", { admin: true, tab: "Cap holds" }],
   ["admin-cash", "#admin", { admin: true, tab: "Cash" }], ["admin-waive", "#admin", { admin: true, tab: "Waived & re-signed" }],
@@ -86,7 +86,7 @@ for (const dark of [false, true]) {
   for (const width of [390, 1000]) {
     for (const [name, suffix, o = {}] of SHOTS) {
       if (only && !only.test(name)) continue;
-      if (dark && !["standings", "team-ATL", "trade", "card", "admin-cash"].includes(name)) continue;
+      if (dark && !["home", "contracts", "standings", "team-ATL", "trade", "card", "admin-cash"].includes(name)) continue;
       const p = await browser.newPage();
       await p.setViewport({ width, height: 800 });
       await p.emulateMediaFeatures([{ name: "prefers-color-scheme", value: dark ? "dark" : "light" }]);

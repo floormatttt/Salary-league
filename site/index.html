@@ -3,9 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d1424">
 <title>Salary League</title>
 <meta name="description" content="Contracts, payroll, trades and transactions for the salary-cap fantasy NBA league.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
 <link rel="stylesheet" href="app.css?v=__VERSION__">
 <script>
   // Where commissioner edits are committed (see site/admin.js)
@@ -15,15 +19,16 @@
 <body>
 <header class="top">
   <div class="top-in">
-    <a class="brand" href="#" data-go="">Salary League</a>
+    <a class="brand" href="#" data-go=""><span class="logo">SL</span>Salary League</a>
     <nav class="nav" id="nav">
-      <a href="#" data-go="" data-page="standings">Standings</a>
+      <a href="#" data-go="" data-page="home">Home</a>
+      <a href="#contracts" data-go="contracts" data-page="contracts">Contracts</a>
+      <a href="#standings" data-go="standings" data-page="standings">Standings</a>
       <a href="#team" data-go="team" data-page="team">Teams</a>
-      <a href="#players" data-go="players" data-page="players">Players</a>
       <a href="#trade" data-go="trade" data-page="trade">Trade machine</a>
       <a href="#log" data-go="log" data-page="log">Transactions</a>
       <a href="#rules" data-go="rules" data-page="rules">Rules</a>
-      <a href="#admin" data-go="admin" data-page="admin">Commissioner</a>
+      <a href="#admin" data-go="admin" data-page="admin" class="right">Commissioner</a>
     </nav>
   </div>
 </header>
@@ -41,6 +46,7 @@
 <script src="lib/Mutations.js?v=__VERSION__"></script>
 <script src="lib/League.js?v=__VERSION__"></script>
 <script src="lib/Card.js?v=__VERSION__"></script>
+<script src="teams.js?v=__VERSION__"></script>
 <script src="card.js?v=__VERSION__"></script>
 <script src="admin.js?v=__VERSION__"></script>
 <script src="export.js?v=__VERSION__"></script>

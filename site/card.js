@@ -31,7 +31,7 @@ var Card = (function () {
     var meta = [c.nbaTeam, e.pos, e.jersey ? "#" + e.jersey : "", e.ht, e.wt, e.age !== "" && e.age != null ? e.age + " yrs" : ""]
       .filter(Boolean).map(esc).join(" · ");
     var chips = [];
-    if (c.fantasy) chips.push('<span class="chip team">' + esc(c.fantasy.team) + (c.fantasy.owner ? " · " + esc(c.fantasy.owner) : "") + "</span>",
+    if (c.fantasy) chips.push('<span class="chip team tc"' + (typeof teamStyle === "function" ? teamStyle(c.fantasy.code) : "") + ">" + esc(c.fantasy.team) + (c.fantasy.owner ? " · " + esc(c.fantasy.owner) : "") + "</span>",
                               '<span class="chip">' + esc(c.fantasy.slot) + "</span>");
     else chips.push('<span class="chip">Not on a league roster</span>');
     if (e.inj) chips.push('<span class="chip inj">' + esc(e.inj.status) + "</span>");
