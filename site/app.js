@@ -369,17 +369,18 @@ function closePlayer() {
 /* ============================ standings ============================ */
 function pageStandings() {
   var L = S.L;
-  var rows = L.teams.map(function (t) {
+  var rows = LM.standings(L.teams).map(function (t, i) {
     var b = book(t.code), p = b.payroll[0];
-    return '<tr><td><div class="tm">' + rankBadge(t) + swatch(t.code) + "<div>" + teamLink(t.code) +
+    return '<tr><td><div class="tm"><span class="rk' + (i < 3 ? " top" : "") + '">' + (i + 1) + "</span>" + swatch(t.code) + "<div>" + teamLink(t.code) +
       '<div class="muted small">' + esc(t.owner) + "</div></div></div></td>" +
       "<td><b>" + record(t) + "</b></td><td>" + f1(t.pf) + '</td><td class="l"><div class="paycell"><b>' + money(p) + "</b>" + meter(p) + "</div></td><td class=l>" + tierChip(p) +
       '</td><td class="' + (b.cash ? cls(b.cash) : "dim") + '">' + (b.cash ? signed(b.cash) : "—") +
+      '</td><td class="' + (t.rank == null ? "dim" : "") + '">' + (t.rank == null ? "—" : "#" + t.rank) +
       '</td><td class="' + (b.maxes ? "" : "dim") + '">' + b.maxes + "/" + L.limits.maxes + '</td><td class="' + (b.smaxes ? "" : "dim") + '">' + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
-  return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">Ranked by the commissioners · payroll includes cap holds and cash</div></div>' +
+  return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">By record, then points for · records live from Sleeper · payroll includes cap holds and cash</div></div>' +
     "</div>" +
-    '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th>Max</th><th>Supermax</th></tr>' +
+    '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th title="Commissioners power ranking">Power</th><th>Max</th><th>Supermax</th></tr>' +
     rows + "</table></div>" + tierLegend();
 }
 

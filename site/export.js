@@ -101,14 +101,16 @@ var Export = (function () {
     X.utils.book_append_sheet(wb, ml, "Master list");
 
     // Standings: team colors on the code, level colors on payroll
-    var st = [["Rank", "Team", "Code", "Owner", "W", "L", "T", "PF"].concat(L.seasons.map(function (s) { return "Payroll " + s; }), ["Level", "Cash balance", "Max", "Supermax"])];
-    var books = L.teams.map(function (t) { return LM.teamBook(L, t.code); });
-    L.teams.forEach(function (t, i) {
+    // league standings order (record, then points for); the commissioners' ranking is its own column
+    var order = LM.standings(L.teams);
+    var st = [["#", "Team", "Code", "Owner", "W", "L", "T", "PF"].concat(L.seasons.map(function (s) { return "Payroll " + s; }), ["Level", "Cash balance", "Max", "Supermax", "Power rank"])];
+    var books = order.map(function (t) { return LM.teamBook(L, t.code); });
+    order.forEach(function (t, i) {
       var b = books[i];
-      st.push([t.rank == null ? "" : t.rank, t.name, t.code, t.owner, t.w, t.l, t.t, t.pf].concat(b.payroll, [b.tier.label, b.cash, b.maxes, b.smaxes]));
+      st.push([i + 1, t.name, t.code, t.owner, t.w, t.l, t.t, t.pf].concat(b.payroll, [b.tier.label, b.cash, b.maxes, b.smaxes, t.rank == null ? "" : t.rank]));
     });
-    var sw = sheet(X, st, range(8, n).concat([n + 9]), [6, 18, 7, 18, 4, 4, 4, 8].concat(range(0, n).map(function () { return 11; }), [12, 11, 6, 9]));
-    L.teams.forEach(function (t, i) {
+    var sw = sheet(X, st, range(8, n).concat([n + 9]), [5, 18, 7, 18, 4, 4, 4, 8].concat(range(0, n).map(function () { return 11; }), [12, 11, 6, 9, 10]));
+    order.forEach(function (t, i) {
       teamCell(sw, X, i + 1, 2, t.code);
       style(sw, X, i + 1, 0, { alignment: { horizontal: "center" }, font: { bold: true, color: { rgb: MUTED } } });
       books[i].payroll.forEach(function (p, j) { tierCell(sw, X, i + 1, 8 + j, LM.tierOf(p).key, j === 0); });
