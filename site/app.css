@@ -490,3 +490,73 @@
   .ent .d span { font-size: 12.5px; color: var(--muted); }
   .when { font-size: 12.5px; color: var(--muted); margin-left: auto; white-space: nowrap; }
   @media (max-width: 520px) { .ent .d { flex-direction: row; gap: 8px; align-items: baseline; } }
+
+  /* =====================================================================
+     Refined type & finish: Instrument Serif for display, Geist for text.
+     (Overrides the earlier rules; keep this block last.)
+     ===================================================================== */
+  :root {
+    --serif: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --sans: Geist, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg: #f6f5f1; --card: #ffffff; --card-2: #faf9f6; --line: #e7e4dd; --line-2: #efede8; --chip: #f0eee9; --row-hover: #faf8f4;
+    --text: #16181d; --muted: #6a6f7a; --faint: #9a9ea8;
+    --shadow: 0 1px 2px rgba(22, 24, 29, .04); --shadow-lg: 0 12px 32px rgba(22, 24, 29, .10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0d10; --card: #131519; --card-2: #17191e; --line: #25282f; --line-2: #1d2026; --chip: #1f2228; --row-hover: #181a20;
+      --text: #ecebe7; --muted: #9b9fa8; --faint: #6d717b; --shadow: none; }
+  }
+  html, body { font-family: var(--sans); font-size: 15px; letter-spacing: -.003em; font-feature-settings: "ss01", "cv11"; }
+  b, strong { font-weight: 600; }
+
+  /* display serif */
+  h1, .hero h1, .brand, .kpi .v, .team-hero .big, .verdict, .tcard-top b, .tbox-head b, .hdr h1 {
+    font-family: var(--serif); font-weight: 400; letter-spacing: -.01em; }
+  h1 { font-size: 38px; line-height: 1.05; }
+  .hero h1 { font-size: 46px; }
+  .brand { font-size: 21px; gap: 11px; }
+  .logo { font-family: var(--sans); border-radius: 50%; width: 30px; height: 30px; font-size: 11.5px; font-weight: 700; letter-spacing: 0; }
+  .kpi .v { font-size: 34px; letter-spacing: -.005em; }
+  .team-hero .big { font-size: 46px; }
+  .team-hero .big small { font-family: var(--sans); }
+  .verdict { font-size: 26px; }
+  .tcard-top b { font-size: 20px; }
+  .tbox-head b { font-size: 20px; }
+  .hdr h1 { font-size: 28px; }
+  @media (max-width: 640px) { h1 { font-size: 31px; } .hero h1 { font-size: 36px; } .kpi .v { font-size: 28px; } .team-hero .big { font-size: 38px; } }
+
+  /* quieter labels */
+  .eyebrow { font-size: 11px; letter-spacing: .14em; font-weight: 600; }
+  .box > h3, h3.sec, h2.sec, .panel-head h3 { font-size: 11px; letter-spacing: .12em; font-weight: 600; }
+  th { font-size: 10.5px; letter-spacing: .09em; font-weight: 600; background: var(--card); border-bottom: 1px solid var(--line); padding-top: 11px; padding-bottom: 11px; }
+  tr.grp td { font-size: 10.5px; letter-spacing: .1em; font-weight: 600; background: var(--card-2); }
+  .pagehead .sub, .hero .sub { font-size: 14.5px; }
+
+  /* softer surfaces */
+  .box, .kpi, .tbl, .tcard { border-radius: 16px; box-shadow: var(--shadow); }
+  .stat { background: var(--card-2); border-color: var(--line-2); border-radius: 12px; }
+  .stat b { font-weight: 600; }
+  .btn { font-weight: 500; border-radius: 999px; padding: 8px 16px; box-shadow: none; }
+  .btn.sm { border-radius: 999px; }
+  .seg { border-radius: 999px; padding: 3px; }
+  .seg button { border-radius: 999px; font-weight: 500; }
+  .seg button.on { font-weight: 600; }
+  input[type=text], input[type=search], input[type=number], input[type=password], select, textarea { border-radius: 12px; }
+  .plink, .asset-main .nm, a.team { font-weight: 500; }
+  .tm a.team { font-weight: 600; }
+  .tier { font-weight: 600; }
+  .badge { font-weight: 600; letter-spacing: .03em; border-radius: 999px; padding: 2px 9px; }
+  .tname, .tcode { font-weight: 600; }
+  .rk { font-weight: 600; border-radius: 50%; }
+  .mny { font-weight: 500; }
+  .mny.m-g { font-weight: 450; }
+  .chip { font-weight: 500; }
+  .stat b, td, .kpi .k { font-variant-numeric: tabular-nums; }
+
+  /* top bar: a hairline of brand color under the dark bar */
+  .top { box-shadow: inset 0 -1px 0 rgba(255,255,255,.06); }
+  .nav a { font-weight: 500; font-size: 14px; }
+  .nav a.on { font-weight: 600; }
+  .nav a.on::after { height: 2px; left: 12px; right: 12px; }
+  .dl { border-radius: 999px; font-weight: 500; }
+  .hero { border-radius: 22px; }
