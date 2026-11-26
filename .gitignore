@@ -1,7 +1,7 @@
 node_modules/
-# clasp: .clasp.json holds the script id, .clasprc.json holds Google credentials
-.clasprc.json
-# screenshot output from npm run shots
+# built site (npm run build)
+dist/
+# screenshot output (npm run shots)
 shots/
-# raw Drive export; rebuild workbook.json with node tools/export-workbook.mjs
+# raw Drive export; rebuild workbook.json with npm run fixtures
 fixtures/workbook.xlsx

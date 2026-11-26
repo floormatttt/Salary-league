@@ -1,10 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<?!= include_("SiteCss") ?>
+<title>Salary League</title>
+<meta name="description" content="Contracts, payroll, trades and transactions for the salary-cap fantasy NBA league.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>">
+<link rel="stylesheet" href="app.css?v=__VERSION__">
+<script>
+  // Where commissioner edits are committed (see site/admin.js)
+  window.SITE = { owner: "floormatttt", repo: "Salary-league", branch: "main", workflow: "site.yml" };
+</script>
 </head>
 <body>
 <header class="top">
@@ -31,9 +37,13 @@
   </div>
 </div>
 
-<script>var BOOT = <?!= bootJson ?>;</script>
-<?!= include_("LeagueMath") ?>
-<?!= include_("CardRender") ?>
-<?!= include_("SiteApp") ?>
+<script src="lib/LeagueMath.js?v=__VERSION__"></script>
+<script src="lib/Mutations.js?v=__VERSION__"></script>
+<script src="lib/League.js?v=__VERSION__"></script>
+<script src="lib/Card.js?v=__VERSION__"></script>
+<script src="card.js?v=__VERSION__"></script>
+<script src="admin.js?v=__VERSION__"></script>
+<script src="export.js?v=__VERSION__"></script>
+<script src="app.js?v=__VERSION__"></script>
 </body>
 </html>

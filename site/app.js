@@ -1,16 +1,75 @@
-<script>
 /* League site: routing, pages, trade machine, commissioner tools.
- * Data: getLeague() once (refreshed after every write); log/rules lazily.
- * Routes (hash): "" standings · team/ATL · players · trade[/<encoded>] · log · rules · admin */
+ * Data: data/*.json (this repo, kept current by the Sleeper sync and commissioner
+ * edits) + live Sleeper rosters/records/picks + ESPN game logs, all fetched in
+ * the browser. Routes (hash): "" standings · team/ATL · players ·
+ * trade[/<encoded>] · log · rules · admin.   ?n=Name opens a player card. */
 var LM = LeagueMath;
-var GAS = !!(window.google && google.script && google.script.history && google.script.url);
 
+/* ============================ data ============================ */
+var DATA = {};       // raw data files
+var LIVE = {};       // live Sleeper: league, rosters, users, traded
+var SLEEPER = "https://api.sleeper.app/v1";
+var ESPN_WEB = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba";
+
+function getJson(url, what) {
+  return fetch(url, { cache: "no-store" }).then(function (r) {
+    if (!r.ok) throw new Error("Couldn't load " + (what || url) + " (HTTP " + r.status + ")");
+    return r.json();
+  });
+}
+// Data files: a fresh copy every load (the CDN caches for up to 10 minutes otherwise)
+function dataFile(key) {
+  if (DATA[key] !== undefined) return Promise.resolve(DATA[key]);
+  return getJson("data/" + League.FILES[key] + "?t=" + Date.now(), League.FILES[key]).then(function (v) { DATA[key] = v; return v; });
+}
+function sleeper(path) { return getJson(SLEEPER + path, "Sleeper " + path); }
+
+function loadLeague() {
+  var id = League.CONFIG.leagueId;
+  return Promise.all([dataFile("contracts"), dataFile("holds"), dataFile("cash"), dataFile("teams"), dataFile("players"), dataFile("state"),
+    sleeper("/league/" + id), sleeper("/league/" + id + "/rosters"), sleeper("/league/" + id + "/users"), sleeper("/league/" + id + "/traded_picks")])
+    .then(function (r) {
+      LIVE = { league: r[6], rosters: r[7], users: r[8], traded: r[9] };
+      return rebuild();
+    });
+}
+function rebuild() { var L = League.build(DATA, LIVE); setLeague(L); return L; }
+function when(ts) {
+  var d = new Date(ts);
+  return isNaN(d) ? "" : d.toLocaleString(undefined, { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+var gameLogs = {};
+var LOCAL = {
+  getLog: function () {
+    return dataFile("log").then(function (rows) {
+      return { rows: rows.map(function (r) { return Object.assign({ when: when(r.ts) }, r); }), lastSync: S.L.lastSync ? when(S.L.lastSync) : "" };
+    });
+  },
+  getRules: function () { return dataFile("rules"); },
+  getCard: function (name) { return dataFile("espn").then(function (espn) { return CardData.card(S.L, DATA.players, espn, name); }); },
+  getGameLog: function (espnId, season) {
+    if (!espnId) return { ok: false, msg: "No ESPN match for this player, so there's no game log." };
+    var key = espnId + "|" + (season || "");
+    if (gameLogs[key]) return gameLogs[key];
+    var url = ESPN_WEB + "/athletes/" + encodeURIComponent(espnId) + "/gamelog" + (season ? "?season=" + encodeURIComponent(season) : "");
+    return (gameLogs[key] = getJson(url, "the ESPN game log").then(function (j) {
+      return CardData.gameLog(j, LIVE.league && LIVE.league.scoring_settings);
+    }, function () { delete gameLogs[key]; return { ok: false, msg: "ESPN didn't return a game log. Try again in a minute." }; }));
+  },
+  getTxns: function (sid) {
+    if (!sid) return { ok: false, msg: "No Sleeper match for this player, so no league transactions." };
+    return dataFile("txns").then(function (list) {
+      var byRid = {}; DATA.teams.forEach(function (t) { byRid[String(t.rid)] = t; });
+      return CardData.txns(list, sid, function (rid) { var t = byRid[String(rid)]; return t ? t.name : "Roster " + rid; },
+        function (pid) { var p = DATA.players[pid]; return p ? p[0] : String(pid); });
+    });
+  },
+};
+// Same call style the card code uses
 function api(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
-  return new Promise(function (res, rej) {
-    var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) { rej(e instanceof Error ? e : new Error(String(e && e.message || e))); });
-    r[fn].apply(r, args);
-  });
+  return Promise.resolve().then(function () { return LOCAL[fn].apply(null, args); });
 }
 
 var S = {
@@ -18,7 +77,7 @@ var S = {
   pl: { q: "", f: "all", limit: 150 },
   lg: { team: "", type: "", n: 100 },
   trade: { teams: [], moves: [] }, shareUrl: "",
-  admin: { token: null, checked: false, tab: "pending", edit: null, q: "", ranks: null, check: null, log: null, waive: null },
+  admin: { tab: "pending", edit: null, q: "", log: null, waive: null },
 };
 
 /* ============================ helpers ============================ */
@@ -79,15 +138,13 @@ function recall(k) { try { return sessionStorage.getItem(k); } catch (e) { retur
 var Nav = {
   go: function (h) {
     h = h || "";
-    if (GAS) { google.script.history.push(null, {}, h); route(h); }
-    else if (location.hash.slice(1) === h) route(h);
+    if (location.hash.slice(1) === h) route(h);
     else location.hash = h;
   },
   // Update the URL without re-rendering (trade machine keeps its hash current)
   quiet: function (h) {
     S.hash = h;
-    if (GAS) google.script.history.replace(null, {}, h);
-    else history.replaceState(null, "", "#" + h);
+    history.replaceState(null, "", location.pathname + location.search + "#" + h);
   },
 };
 
@@ -106,7 +163,10 @@ function route(h, keepScroll) {
   if (!keepScroll) window.scrollTo(0, 0);
 }
 function rerender() { route(S.hash, true); }
-function footer() { return '<div class="foot">' + (S.L && S.L.lastSync ? "Sleeper last synced " + esc(S.L.lastSync) : "") + "</div>"; }
+function footer() {
+  return '<div class="foot">Rosters and records are live from Sleeper' + (S.L && S.L.lastSync ? " · league data last changed " + esc(when(S.L.lastSync)) : "") +
+    ' · <button class="linkbtn" data-act="download">Download spreadsheet</button></div>';
+}
 
 /* ============================ player popup ============================ */
 function openPlayer(name) {
@@ -137,7 +197,8 @@ function pageStandings() {
       '</td><td class="' + cls(b.cash) + '">' + (b.cash ? signed(b.cash) : "—") +
       "</td><td>" + b.maxes + "/" + L.limits.maxes + "</td><td>" + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
-  return '<div class="pagehead"><div><h1>Standings</h1><div class="sub">' + esc(L.season) + " · ranked by the commissioners · payroll includes cap holds and cash</div></div></div>" +
+  return '<div class="pagehead"><div><h1>Standings</h1><div class="sub">' + esc(L.season) + " · ranked by the commissioners · payroll includes cap holds and cash</div></div>" +
+    '<button class="btn" data-act="download">Download spreadsheet</button></div>' +
     '<div class="tbl"><table><tr><th>Team</th><th>Payroll</th><th class=l>Level</th><th>W-L-T</th><th>PF</th><th>Cash</th><th>Max</th><th>Supermax</th></tr>' +
     rows + "</table></div>";
 }
@@ -447,15 +508,20 @@ function pageRules() {
 
 /* ============================ commissioner ============================ */
 var ADMIN_TABS = [["pending", "Pending"], ["contracts", "Contracts"], ["holds", "Cap holds"], ["waive", "Waived & re-signed"],
-                  ["cash", "Cash"], ["ranks", "Rankings"], ["check", "Payroll check"], ["sync", "Sync & log"]];
+                  ["cash", "Cash"], ["ranks", "Rankings"], ["sync", "Sync & log"]];
 
-function adminLogout(msg) { S.admin.token = null; store("slAdmin", null); if (msg) toast(msg, true); rerender(); }
-function adminCall(fn, arg, okMsg) {
-  return api(fn, S.admin.token, arg).then(function (res) {
-    if (okMsg) toast(typeof okMsg === "function" ? okMsg(res) : okMsg);
-    return api("getLeague").then(function (L) { setLeague(L); return res; });
+function adminLogout(msg) { Admin.signOut(); if (msg) toast(msg, true); rerender(); }
+// Runs mutation steps as one commit, then shows the result right away
+// (the public site catches up when GitHub Pages redeploys, about a minute).
+function adminCall(steps, okMsg) {
+  return Admin.apply(steps).then(function (res) {
+    ["contracts", "holds", "cash", "teams", "adminLog"].forEach(function (k) { DATA[k] = res.D[k]; });
+    S.admin.log = null;
+    rebuild();
+    toast((typeof okMsg === "function" ? okMsg(res) : okMsg || "Saved") + ". The public site updates in about a minute.");
+    return res;
   }, function (e) {
-    if (/session expired/i.test(e.message)) adminLogout(e.message); else toast(e.message, true);
+    if (/sign in again/i.test(e.message)) adminLogout(e.message); else toast(e.message, true);
     throw e;
   });
 }
@@ -466,21 +532,20 @@ function activeNames() {
 
 function pageAdmin() {
   var A = S.admin;
-  if (!A.token) A.token = recall("slAdmin");
-  if (!A.token) {
+  if (!Admin.signedIn()) {
     return '<div class="pagehead"><div><h1>Commissioner</h1><div class="sub">Edit contracts, cap holds, cash and rankings</div></div></div>' +
-      '<div class="box" style="max-width:420px"><form id="loginForm"><label class="f">Passcode<input type="password" id="pass" autocomplete="current-password"></label>' +
-      '<div class="row" style="margin:10px 0 0"><button class="btn pri" type="submit">Sign in</button><span class="err small" id="loginMsg"></span></div></form></div>';
-  }
-  if (!A.checked) {
-    A.checked = true;
-    api("adminCheck", A.token).then(function (r) { if (!r.ok) adminLogout("Your admin session expired. Sign in again."); });
+      '<div class="box" style="max-width:560px"><form id="loginForm"><label class="f">GitHub token<input type="password" id="pass" autocomplete="off" placeholder="github_pat_…"></label>' +
+      '<div class="row" style="margin:10px 0 0"><button class="btn pri" type="submit">Sign in</button><span class="err small" id="loginMsg"></span></div></form>' +
+      '<p class="muted small">Every edit is saved as a commit to the league\'s GitHub repo, so commissioners sign in with a GitHub token that can write to ' +
+      esc(SITE.owner + "/" + SITE.repo) + '. Make one at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub › Settings › Fine-grained tokens</a>: ' +
+      "repository access “Only select repositories” → this repo; permissions <b>Contents: Read and write</b> and <b>Actions: Read and write</b>. " +
+      "The token stays in this browser until you sign out.</p></div>";
   }
   var tabs = '<div class="seg" style="margin-bottom:12px">' + ADMIN_TABS.map(function (t) {
     return '<button data-act="adminTab" data-v="' + t[0] + '" class="' + (A.tab === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
   var body = ({ pending: adminPending, contracts: adminContracts, holds: adminHolds, waive: adminWaive, cash: adminCash,
-                ranks: adminRanks, check: adminCheckPage, sync: adminSync })[A.tab]();
-  return '<div class="pagehead"><div><h1>Commissioner</h1><div class="sub">Every change is written to the sheet and the Admin Log</div></div>' +
+                ranks: adminRanks, sync: adminSync })[A.tab]();
+  return '<div class="pagehead"><div><h1>Commissioner</h1><div class="sub">Signed in as ' + esc(Admin.who()) + ' · every change is a commit to the repo and goes in the Admin Log</div></div>' +
     '<button class="btn" data-act="logout">Sign out</button></div>' + tabs + (A.edit ? contractEditor(A.edit) : "") + body + activeNames();
 }
 
@@ -488,19 +553,19 @@ function contractEditor(c) {
   var L = S.L;
   var rows = L.seasons.map(function (s, i) {
     var v = c.sal[i];
-    return "<tr><td>" + esc(s) + '</td><td><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" style="width:90px" placeholder="—"></td>' +
-      '<td><select data-stat="' + i + '">' + ["", "PO", "TO", "MAX", "SMAX", "HOLD"].map(function (x) { return opt(x, x || "—", (c.st[i] || "") === x); }).join("") + "</select></td></tr>";
+    return "<tr><td>" + esc(s) + '</td><td class="l"><input type="text" data-sal="' + i + '" value="' + esc(typeof v === "number" ? v : v || "") + '" style="width:90px" placeholder="—"></td>' +
+      '<td class="l"><select data-stat="' + i + '">' + ["", "PO", "TO", "MAX", "SMAX", "HOLD"].map(function (x) { return opt(x, x || "—", (c.st[i] || "") === x); }).join("") + "</select></td></tr>";
   }).join("");
-  return '<div class="box" id="editor"><h3>' + (c.r ? "Edit Master list row " + c.r : "New contract") + "</h3>" +
+  return '<div class="box" id="editor"><h3>' + (c.id ? "Edit contract · " + esc(c.n) : "New contract") + "</h3>" +
     '<div class="form"><label class="f">Player name<input type="text" data-k="n" value="' + esc(c.n) + '"></label>' +
     '<label class="f">NBA team<input type="text" data-k="nba" value="' + esc(c.nba) + '" placeholder="ATL (Z if unknown)" style="text-transform:uppercase"></label></div>' +
     '<div class="tbl" style="margin:10px 0"><table><tr><th>Season</th><th class=l>Salary ($M, UFA, RFA)</th><th class=l>Status</th></tr>' + rows + "</table></div>" +
     '<label class="f">Contract details<input type="text" data-k="det" value="' + esc(c.det) + '"></label>' +
-    '<p class="muted small">Writes columns A–R only. ' + (c.r ? "The row is re-checked by name before saving, in case the list moved." : "A new row goes at the end of its NBA team's block.") + "</p>" +
+    '<p class="muted small">' + (c.id ? "Name it “Player (cap hold)” to make it a cap hold." : "A new contract goes at the end of its NBA team's group.") + "</p>" +
     '<div class="row start"><button class="btn pri" data-act="saveContract">Save</button><button class="btn" data-act="cancelEdit">Cancel</button>' +
-    (c.r ? '<button class="btn danger" data-act="deleteContract" data-confirm="Tap again to delete">Delete row</button>' : "") + "</div></div>";
+    (c.id ? '<button class="btn danger" data-act="deleteContract" data-confirm="Tap again to delete">Delete contract</button>' : "") + "</div></div>";
 }
-function editable(c) { return { r: c.r, expect: c.n, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det }; }
+function editable(c) { return { id: c.id, n: c.n, nba: c.nba, sal: c.sal.slice(), st: c.st.slice(), det: c.det }; }
 function contractList(list) {
   if (!list.length) return '<div class="empty">Nothing here.</div>';
   var idx = rosterIdx();
@@ -508,42 +573,43 @@ function contractList(list) {
     list.map(function (c) {
       var r = idx[LM.norm(c.n)];
       return '<tr><td class="name">' + pbtn(c.n) + '</td><td class="l muted">' + esc(c.nba) + '</td><td class="l">' + (c.hold ? esc(holdTeam(c.n)) : r ? esc(r.code) : "—") +
-        "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(c.det) + '</td><td><button class="btn sm" data-act="edit" data-r="' + c.r + '">Edit</button></td></tr>';
+        "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(c.det) + '</td><td><button class="btn sm" data-act="edit" data-id="' + c.id + '">Edit</button></td></tr>';
     }).join("") + "</table></div>";
+}
+function contractSearch(q) {
+  var qn = LM.norm(q);
+  return S.L.contracts.filter(function (c) { return LM.norm(c.n).indexOf(qn) >= 0 || c.nba.toLowerCase() === q.trim().toLowerCase(); }).slice(0, 40);
 }
 function adminPending() {
   var list = S.L.contracts.filter(function (c) { return /pending/i.test(c.det); });
-  return box("Pending contracts · " + list.length, '<p class="muted small" style="margin-top:0">Rows the sync created for new adds. Set their salary and clear the PENDING note.</p>' + contractList(list));
+  return box("Pending contracts · " + list.length, '<p class="muted small" style="margin-top:0">The sync adds one of these whenever a team picks up a player without a contract. Set the salary and clear the PENDING note.</p>' + contractList(list));
 }
 function adminContracts() {
-  var q = S.admin.q.trim(), qn = LM.norm(q);
-  var list = q ? S.L.contracts.filter(function (c) { return LM.norm(c.n).indexOf(qn) >= 0 || c.nba.toLowerCase() === q.toLowerCase(); }).slice(0, 40) : [];
+  var q = S.admin.q.trim();
   return '<div class="box"><div class="row"><input type="search" class="grow" id="cq" placeholder="Find a contract by player or NBA team" value="' + esc(q) + '">' +
-    '<button class="btn" data-act="newContract">New contract</button></div><div id="cList">' + (q ? contractList(list) : '<div class="empty">Search to edit or delete a row.</div>') + "</div></div>";
+    '<button class="btn" data-act="newContract">New contract</button></div><div id="cList">' + (q ? contractList(contractSearch(q)) : '<div class="empty">Search to edit or delete a contract.</div>') + "</div></div>";
 }
 function adminHolds() {
   var holds = S.L.holds.slice().sort(function (a, b) { return a.code.localeCompare(b.code) || a.name.localeCompare(b.name); });
-  var table = holds.length && holds[0].row == null
-    ? '<p class="err">The Cap Holds table isn\'t set up yet, so these come from the team tabs. Run <b>Sync League › Set up site tables</b> in the sheet to edit them here.</p>' : "";
   var rows = holds.map(function (h) {
     var c = S.L.contracts.filter(function (x) { return x.hold && LM.norm(x.n) === LM.norm(h.name); })[0];
-    return "<tr><td>" + esc(h.code) + '</td><td class="l">' + pbtn(h.name) + "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(h.note || "") + "</td><td>" +
-      (h.row ? '<button class="btn sm danger" data-act="rmHold" data-row="' + h.row + '" data-code="' + esc(h.code) + '" data-name="' + esc(h.name) + '" data-confirm="Tap again">Remove</button>' : "") + "</td></tr>";
+    return "<tr><td>" + esc(h.code) + '</td><td class="l">' + pbtn(h.name) + (c ? "" : '<span class="flag bad">No contract</span>') + "</td><td>" + salCell(c, 0) + '</td><td class="l muted small">' + esc(h.note || "") + "</td><td>" +
+      '<button class="btn sm danger" data-act="rmHold" data-id="' + h.id + '" data-confirm="Tap again">Remove</button></td></tr>';
   }).join("");
   return box("Make a player a cap hold",
-      '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="holdName" placeholder="Name on the Master list"></label>' +
+      '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="holdName" placeholder="Name on the contracts list"></label>' +
       '<label class="f">Team that carries it<select data-k="holdCode">' + teamOptions("", "Pick a team") + "</select></label>" +
-      '<button class="btn pri" data-act="addHold">Add cap hold</button></div><p class="muted small">Renames his Master list row to “(cap hold)” and adds it to the Cap Holds table and the team tab.</p>') +
-    box("Cap holds · " + holds.length, table + '<div class="tbl"><table><tr><th>Team</th><th class=l>Player</th><th>' + esc(S.L.season) + "</th><th class=l>Note</th><th></th></tr>" + rows + "</table></div>");
+      '<button class="btn pri" data-act="addHold">Add cap hold</button></div><p class="muted small">Renames his contract to “(cap hold)” and puts it on that team. Removing a hold takes it off the team but keeps the contract row; delete that under Contracts if it\'s gone for good.</p>') +
+    box("Cap holds · " + holds.length, '<div class="tbl"><table><tr><th>Team</th><th class=l>Player</th><th>' + esc(S.L.season) + "</th><th class=l>Note</th><th></th></tr>" + rows + "</table></div>");
 }
 function adminWaive() {
   var w = S.admin.waive || {};
   return box("Waived & re-signed",
-    '<p class="muted small" style="margin-top:0">For a player who was waived and signed again: his old contract becomes a cap hold and he gets a new $2.0M / 1-year minimum (then UFA) in his NBA team\'s block.</p>' +
-    '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="waiveName" value="' + esc(w.name || "") + '" placeholder="Name on the Master list"></label>' +
-    '<label class="f">Team that carries the cap hold<select data-k="waiveCode">' + teamOptions(w.code || "", "Look it up on the team tabs") + "</select></label>" +
+    '<p class="muted small" style="margin-top:0">For a player who was waived and signed again: his old contract becomes a cap hold on the team that waived him, and he gets a new $2.0M / 1-year minimum (then UFA) in his NBA team\'s group.</p>' +
+    '<div class="form"><label class="f">Player<input type="text" list="activeNames" data-k="waiveName" value="' + esc(w.name || "") + '" placeholder="Name on the contracts list"></label>' +
+    '<label class="f">Team that carries the cap hold<select data-k="waiveCode">' + teamOptions(w.code || "", "Which team waived him?") + "</select></label>" +
     '<button class="btn pri" data-act="waive">Convert</button></div>' +
-    (w.msg ? '<p class="' + (w.needTeam ? "err" : "ok") + '">' + esc(w.msg) + "</p>" : ""));
+    (w.msg ? '<p class="ok">' + esc(w.msg) + "</p>" : ""));
 }
 function adminCash() {
   var L = S.L, A = S.admin, season = A.cashSeason || L.season;
@@ -551,11 +617,10 @@ function adminCash() {
   L.cash.forEach(function (x) { if (x.season === season) bal[x.code] = LM.r1((bal[x.code] || 0) + x.amt); });
   var chips = Object.keys(bal).filter(function (k) { return bal[k]; }).sort().map(function (k) {
     return '<span class="chip ' + (Math.abs(bal[k]) > L.limits.cash ? "inj" : "") + '">' + esc(k) + " " + signed(bal[k]) + "</span>"; }).join(" ");
-  var noTable = L.cash.length && L.cash[0].row == null;
   var rows = L.cash.slice().reverse().map(function (x) {
-    return "<tr><td>" + esc(x.code) + '</td><td class="l muted">' + esc(x.date) + '</td><td class="l">' + esc(x.season) + '</td><td class="' + cls(x.amt) + '">' + signed(x.amt) +
+    return "<tr><td>" + esc(x.code) + '</td><td class="l muted">' + esc(String(x.date || "").slice(0, 10)) + '</td><td class="l">' + esc(x.season) + '</td><td class="' + cls(x.amt) + '">' + signed(x.amt) +
       '</td><td class="l small">' + esc(x.note) + (x.ref ? ' <span class="muted">' + esc(x.ref) + "</span>" : "") + "</td><td>" +
-      (x.row ? '<button class="btn sm danger" data-act="rmCashRow" data-row="' + x.row + '" data-code="' + esc(x.code) + '" data-amt="' + x.amt + '" data-confirm="Tap again">Delete</button>' : "") + "</td></tr>";
+      '<button class="btn sm danger" data-act="rmCashRow" data-id="' + x.id + '" data-confirm="Tap again">Delete</button></td></tr>';
   }).join("");
   return box("Record a cash transfer",
       '<div class="form"><label class="f">Season<select data-k="cashSeason">' + L.seasons.map(function (s) { return opt(s, s, s === season); }).join("") + "</select></label>" +
@@ -565,58 +630,34 @@ function adminCash() {
       '<label class="f">Note<input type="text" data-k="cashNote" placeholder="e.g. trade with Utah"></label></div>' +
       '<div class="row start" style="margin-top:10px"><label class="check"><input type="checkbox" data-k="cashOverride"> Override the ±$' + L.limits.cash + 'M balance limit</label>' +
       '<button class="btn pri" data-act="recordCash">Record</button></div>' +
-      '<p class="muted small">Writes two ledger rows: +amount for the sender (adds to its payroll) and −amount for the receiver.</p>') +
+      '<p class="muted small">Adds two ledger rows: +amount for the sender (adds to its payroll) and −amount for the receiver.</p>') +
     box("Balances " + esc(season), chips || '<span class="muted">Every team is at $0.0.</span>') +
-    box("Cash Ledger", (noTable ? '<p class="err">The Cash Ledger isn\'t set up yet; these are the team tabs\' Cash Considerations values. Run <b>Sync League › Set up site tables</b>.</p>' : "") +
-      '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div>");
+    box("Cash Ledger", '<div class="tbl"><table><tr><th>Team</th><th class=l>Date</th><th class=l>Season</th><th>Amount</th><th class=l>Note</th><th></th></tr>' + rows + "</table></div>");
 }
 function adminRanks() {
-  var teams = S.L.teams.slice();
-  return box("Power rankings", '<p class="muted small" style="margin-top:0">Rank numbers on Team Power Rankings. PF and record come from Sleeper.</p>' +
-    '<div class="tbl"><table><tr><th>Team</th><th>Rank</th><th>W-L-T</th><th>PF</th></tr>' + teams.map(function (t) {
-      return "<tr><td>" + esc(t.name) + '</td><td><input type="number" min="1" max="30" style="width:70px" data-rank="' + esc(t.name) + '" value="' + (t.rank == null ? "" : t.rank) + '"></td><td>' +
+  return box("Power rankings", '<p class="muted small" style="margin-top:0">Rank numbers for the standings. Records and points come from Sleeper.</p>' +
+    '<div class="tbl"><table><tr><th>Team</th><th>Rank</th><th>W-L-T</th><th>PF</th></tr>' + S.L.teams.map(function (t) {
+      return "<tr><td>" + esc(t.name) + '</td><td><input type="number" min="1" max="30" style="width:70px" data-rank="' + esc(t.code) + '" value="' + (t.rank == null ? "" : t.rank) + '"></td><td>' +
         t.w + "-" + t.l + (t.t ? "-" + t.t : "") + "</td><td>" + f1(t.pf) + "</td></tr>"; }).join("") +
     '</table></div><div class="row start" style="margin-top:10px"><button class="btn pri" data-act="saveRanks">Save rankings</button></div>');
 }
-function adminCheckPage() {
-  var res = S.admin.check, L = S.L;
-  var out = "";
-  if (res) {
-    var diffs = [];
-    L.teams.forEach(function (t) {
-      var tab = res.totals[t.code], site = book(t.code).payroll, b = book(t.code);
-      var onTab = {}; (res.names[t.code] || []).forEach(function (n) { onTab[LM.norm(n)] = true; });
-      var notOnTab = b.players.filter(function (x) { return !onTab[LM.norm(x.name)]; }).map(function (x) { return x.name; });
-      var notes = [notOnTab.length ? "Not on the tab: " + notOnTab.join(", ") : "", b.missing.length ? "No contract: " + b.missing.join(", ") : ""].filter(Boolean).join(" · ");
-      if (!tab) { diffs.push("<tr><td>" + esc(t.code) + '</td><td colspan="5" class="l err">No “Total Payroll:” row found on the tab</td></tr>'); return; }
-      L.seasons.forEach(function (s, i) {
-        var d = LM.r1(site[i] - (tab[i] || 0));
-        if (Math.abs(d) >= 0.05) diffs.push("<tr><td>" + esc(t.code) + '</td><td class="l">' + esc(s) + "</td><td>" + money(site[i]) + "</td><td>" + money(tab[i]) +
-          '</td><td class="' + cls(-Math.abs(d)) + '">' + signed(d) + '</td><td class="l small" style="white-space:normal;min-width:220px">' + (i === 0 ? esc(notes) : "") + "</td></tr>");
-      });
-    });
-    out = diffs.length
-      ? '<div class="tbl"><table><tr><th>Team</th><th class=l>Season</th><th>Site</th><th>Tab</th><th>Diff</th><th class=l>Notes</th></tr>' + diffs.join("") + "</table></div>" +
-        '<p class="muted small">The site counts everyone on the Sleeper roster (including IR and taxi), the team\'s cap holds and its cash. A tab that\'s missing a rostered player shows a positive diff.</p>'
-      : '<p class="ok"><b>Every team tab matches the site for all ' + L.seasons.length + " seasons.</b></p>";
-  }
-  return box("Payroll check", '<p class="muted small" style="margin-top:0">Compares the site\'s payroll with each team tab\'s “Total Payroll:” row.</p>' +
-    '<button class="btn pri" data-act="runCheck">Run check</button><div style="margin-top:12px">' + out + "</div>");
-}
 function adminSync() {
   var log = S.admin.log;
-  if (!log) api("adminGetLog", S.admin.token).then(function (r) { S.admin.log = r; if (S.admin.tab === "sync" && /^admin/.test(S.hash)) rerender(); }, function () {});
-  return box("Sleeper sync", '<p class="muted small" style="margin-top:0">Runs automatically every 5 minutes. Last synced ' + esc(S.L.lastSync || "—") + ".</p>" +
-      '<button class="btn pri" data-act="runSync">Run sync now</button>') +
-    box("Admin Log", !log ? loading() : log.length ? log.map(function (r) {
-      return '<div class="ent"><div class="d">' + esc(r.time) + '</div><div class="body"><b>' + esc(r.action) + '</b><div class="small">' + esc(r.details) + "</div></div></div>"; }).join("")
+  if (!log) Admin.adminLog().then(function (r) { S.admin.log = r; if (S.admin.tab === "sync" && /^admin/.test(S.hash)) rerender(); },
+    function (e) { S.admin.log = []; toast(e.message, true); });
+  return box("Sleeper sync", '<p class="muted small" style="margin-top:0">Runs on GitHub every 5 minutes (GitHub sometimes runs it a few minutes late). Last change it made: ' +
+      esc(S.L.lastSync ? when(S.L.lastSync) : "—") + ".</p>" +
+      '<button class="btn pri" data-act="runSync">Run sync now</button>' +
+      ' <a class="small" href="https://github.com/' + esc(SITE.owner + "/" + SITE.repo) + '/actions" target="_blank" rel="noopener">See runs on GitHub</a>') +
+    box("Admin Log", !log ? loading() : log.length ? log.slice(0, 200).map(function (r) {
+      return '<div class="ent"><div class="d">' + esc(when(r.ts)) + '</div><div class="body"><b>' + esc(r.action) + '</b> <span class="muted small">' + esc(r.who || "") + '</span><div class="small">' + esc(r.details) + "</div></div></div>"; }).join("")
       : '<div class="empty">Nothing logged yet.</div>');
 }
 function val(k) { var el = view().querySelector('[data-k="' + k + '"]'); return el ? (el.type === "checkbox" ? el.checked : el.value) : ""; }
 
 /* ============================ events ============================ */
 function armed(btn) {
-  // two-tap confirm for destructive buttons (no browser dialogs inside the web app)
+  // two-tap confirm for destructive buttons
   if (!btn.hasAttribute("data-confirm")) return true;
   if (btn.classList.contains("armed")) return true;
   btn.classList.add("armed");
@@ -643,6 +684,9 @@ document.addEventListener("click", function (ev) {
   if (!armed(b)) return;
 
   switch (act) {
+    case "download":
+      busy(b, Export.download(S.L, LOCAL.getLog, LOCAL.getRules).then(function () { toast("Spreadsheet downloaded"); }, function (e) { toast(e.message, true); }));
+      break;
     case "plFilter": S.pl.f = b.getAttribute("data-v"); S.pl.limit = 150; rerender(); break;
     case "plMore": S.pl.limit += 150; $("plTable").innerHTML = plTable(); break;
     case "logMore": S.lg.n += 100; $("logList").innerHTML = logList(); break;
@@ -650,7 +694,7 @@ document.addEventListener("click", function (ev) {
     case "toResult": window.scrollTo(0, $("tradeResult").getBoundingClientRect().top + window.scrollY - 70); break;
     case "clearTrade": S.trade = { teams: S.trade.teams.slice(0, 2), moves: [] }; tradeChanged(); break;
     case "share":
-      S.shareUrl = (BOOT.url || location.href.split("#")[0]) + "#" + tradeEncode(S.trade);
+      S.shareUrl = location.href.split("#")[0].split("?")[0] + "#" + tradeEncode(S.trade);
       var y = window.scrollY; view().innerHTML = pageTrade("") + footer(); window.scrollTo(0, y);
       var inp = $("shareUrl"); inp.select();
       if (navigator.clipboard) navigator.clipboard.writeText(S.shareUrl).then(function () { toast("Link copied"); }, function () { toast("Copy the link from the box"); });
@@ -667,63 +711,56 @@ document.addEventListener("click", function (ev) {
       S.trade.moves = S.trade.moves.filter(function (m) { if (!done && m.type === "cash" && m.from === f && m.to === tt && m.amt === a) { done = true; return false; } return true; });
       tradeChanged(); break;
     case "recordTradeCash":
-      var cm = S.trade.moves.filter(function (m) { return m.type === "cash"; });
       var ref = "Trade " + new Date().toISOString().slice(0, 10) + " " + S.trade.teams.join("/");
-      busy(b, cm.reduce(function (pr, m) {
-        return pr.then(function () { return api("adminRecordCash", A.token, { season: S.L.season, from: m.from, to: m.to, amt: m.amt, note: "Trade: " + m.from + " → " + m.to, ref: ref }); });
-      }, Promise.resolve()).then(function () { toast("Cash recorded in the ledger"); return api("getLeague"); }).then(function (L) { setLeague(L); rerender(); },
-        function (e) { toast(e.message, true); }));
+      var steps = S.trade.moves.filter(function (m) { return m.type === "cash"; }).map(function (m) {
+        return ["recordCash", { season: S.L.season, from: m.from, to: m.to, amt: m.amt, note: "Trade: " + m.from + " → " + m.to, ref: ref }];
+      });
+      busy(b, adminCall(steps, "Cash recorded in the ledger").then(rerender));
       break;
 
     case "logout": adminLogout(); break;
     case "adminTab": A.tab = b.getAttribute("data-v"); A.edit = null; rerender(); break;
     case "edit":
-      var r = Number(b.getAttribute("data-r"));
-      A.edit = editable(S.L.contracts.filter(function (c) { return c.r === r; })[0]); rerender(); window.scrollTo(0, $("editor").offsetTop - 70); break;
-    case "newContract": A.edit = { r: null, n: "", nba: "", sal: [], st: [], det: "" }; rerender(); break;
+      var id = Number(b.getAttribute("data-id"));
+      A.edit = editable(S.L.contracts.filter(function (c) { return c.id === id; })[0]); rerender(); window.scrollTo(0, $("editor").offsetTop - 70); break;
+    case "newContract": A.edit = { id: null, n: "", nba: "", sal: [], st: [], det: "" }; rerender(); break;
     case "cancelEdit": A.edit = null; rerender(); break;
     case "saveContract":
       var ed = $("editor"), c = {
-        row: A.edit.r, expect: A.edit.expect, n: val("n").trim(), nba: val("nba").trim().toUpperCase(), det: val("det"),
+        id: A.edit.id, n: val("n").trim(), nba: val("nba").trim().toUpperCase(), det: val("det"),
         sal: S.L.seasons.map(function (_, i) { return ed.querySelector('[data-sal="' + i + '"]').value.trim(); }),
         st: S.L.seasons.map(function (_, i) { return ed.querySelector('[data-stat="' + i + '"]').value; }),
       };
-      busy(b, adminCall("adminSaveContract", c, function (res) { return "Saved row " + res.row; }).then(function () { A.edit = null; rerender(); }));
+      busy(b, adminCall([["saveContract", c]], "Contract saved").then(function () { A.edit = null; rerender(); }));
       break;
     case "deleteContract":
-      busy(b, adminCall("adminDeleteContract", { row: A.edit.r, expect: A.edit.expect }, "Row deleted").then(function () { A.edit = null; rerender(); }));
+      busy(b, adminCall([["deleteContract", { id: A.edit.id }]], "Contract deleted").then(function () { A.edit = null; rerender(); }));
       break;
     case "addHold":
-      busy(b, adminCall("adminAddHold", { name: val("holdName"), code: val("holdCode") }, function (r) { return r.log; }).then(rerender));
+      busy(b, adminCall([["addHold", { name: val("holdName"), code: val("holdCode") }]], function (r) { return r.logs[0]; }).then(rerender));
       break;
     case "rmHold":
-      busy(b, adminCall("adminRemoveHold", { row: Number(b.getAttribute("data-row")), code: b.getAttribute("data-code"), name: b.getAttribute("data-name") }, "Cap hold removed").then(rerender));
+      busy(b, adminCall([["removeHold", { id: Number(b.getAttribute("data-id")) }]], "Cap hold removed").then(rerender));
       break;
     case "waive":
       var w = { name: val("waiveName"), code: val("waiveCode") };
-      busy(b, adminCall("adminWaiveResign", w).then(function (res) {
-        A.waive = res.needTeam ? Object.assign(w, { needTeam: true, msg: res.msg }) : { msg: res.log };
-        if (!res.needTeam) toast("Done: new minimum contract in row " + res.newRow);
-        rerender();
-      }));
+      if (!w.code) { A.waive = Object.assign(w, { msg: "" }); toast("Which team carries his cap hold? Pick the team that waived him.", true); break; }
+      busy(b, adminCall([["waiveResign", w]], "Done").then(function (res) { A.waive = { msg: res.logs[0] }; rerender(); }));
       break;
     case "recordCash":
       A.cashSeason = val("cashSeason");
-      busy(b, adminCall("adminRecordCash", { season: val("cashSeason"), from: val("cashFrom"), to: val("cashToTeam"), amt: Number(val("cashAmt")),
-        note: val("cashNote"), override: val("cashOverride") }, "Cash recorded").then(rerender));
+      busy(b, adminCall([["recordCash", { season: val("cashSeason"), from: val("cashFrom"), to: val("cashToTeam"), amt: Number(val("cashAmt")),
+        note: val("cashNote"), override: val("cashOverride") }]], "Cash recorded").then(rerender));
       break;
     case "rmCashRow":
-      busy(b, adminCall("adminDeleteCash", { row: Number(b.getAttribute("data-row")), code: b.getAttribute("data-code"), amt: Number(b.getAttribute("data-amt")) }, "Ledger row deleted").then(rerender));
+      busy(b, adminCall([["deleteCash", { id: Number(b.getAttribute("data-id")) }]], "Ledger row deleted").then(rerender));
       break;
     case "saveRanks":
-      var ranks = Array.prototype.map.call(view().querySelectorAll("[data-rank]"), function (el) { return { name: el.getAttribute("data-rank"), rank: el.value }; });
-      busy(b, adminCall("adminSetRanks", ranks, function (r) { return "Rankings saved"; }).then(rerender));
-      break;
-    case "runCheck":
-      busy(b, api("adminPayrollCheck", A.token).then(function (r) { A.check = r; rerender(); }, function (e) { toast(e.message, true); }));
+      var ranks = Array.prototype.map.call(view().querySelectorAll("[data-rank]"), function (el) { return { code: el.getAttribute("data-rank"), rank: el.value }; });
+      busy(b, adminCall([["setRanks", ranks]], "Rankings saved").then(rerender));
       break;
     case "runSync":
-      busy(b, adminCall("adminRunSync", null, "Sync finished").then(function () { A.log = null; S.log = null; rerender(); }));
+      busy(b, Admin.runSync().then(function () { toast("Sync started on GitHub. Changes show up here in a couple of minutes."); }, function (e) { toast(e.message, true); }));
       break;
   }
 });
@@ -751,18 +788,16 @@ var inputTimer = null;
 document.addEventListener("input", function (ev) {
   var t = ev.target;
   if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
-  else if (t.id === "cq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.admin.q = t.value; $("cList").innerHTML = S.admin.q.trim() ? contractList(S.L.contracts.filter(function (c) {
-    var qn = LM.norm(S.admin.q); return LM.norm(c.n).indexOf(qn) >= 0 || c.nba.toLowerCase() === S.admin.q.trim().toLowerCase(); }).slice(0, 40)) : '<div class="empty">Search to edit or delete a row.</div>'; }, 120); }
+  else if (t.id === "cq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
+    S.admin.q = t.value; $("cList").innerHTML = S.admin.q.trim() ? contractList(contractSearch(S.admin.q)) : '<div class="empty">Search to edit or delete a contract.</div>'; }, 120); }
 });
 
 document.addEventListener("submit", function (ev) {
   if (ev.target.id !== "loginForm") return;
   ev.preventDefault();
   var btn = ev.target.querySelector("button");
-  busy(btn, api("adminLogin", $("pass").value).then(function (r) {
-    if (!r.ok) { $("loginMsg").textContent = r.msg; return; }
-    S.admin.token = r.token; S.admin.checked = true; store("slAdmin", r.token); rerender();
-  }, function (e) { $("loginMsg").textContent = e.message; }));
+  busy(btn, Admin.signIn($("pass").value).then(function (who) { toast("Signed in as " + who); rerender(); },
+    function (e) { $("loginMsg").textContent = e.message; }));
 });
 
 document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && $("modal").classList.contains("open")) closePlayer(); });
@@ -770,23 +805,12 @@ document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && 
 /* ============================ start ============================ */
 (function start() {
   Card.bind($("card"));
-  api("getLeague").then(function (L) {
-    setLeague(L);
-    if (GAS) {
-      google.script.history.setChangeHandler(function (e) { route(e.location && e.location.hash || ""); });
-      google.script.url.getLocation(function (loc) {
-        route(loc.hash || "");
-        var n = BOOT.n || (loc.parameter && loc.parameter.n);
-        if (n) openPlayer(n);
-      });
-    } else {
-      window.addEventListener("hashchange", function () { if (location.hash.slice(1) !== S.hash) route(location.hash.slice(1)); });
-      route(location.hash.slice(1));
-      var n = BOOT.n || new URLSearchParams(location.search).get("n");
-      if (n) openPlayer(n);
-    }
+  loadLeague().then(function () {
+    window.addEventListener("hashchange", function () { if (location.hash.slice(1) !== S.hash) route(location.hash.slice(1)); });
+    route(location.hash.slice(1));
+    var n = new URLSearchParams(location.search).get("n");
+    if (n) openPlayer(n);
   }, function (e) {
-    view().innerHTML = box("", '<div class="err">Couldn\'t load the league: ' + esc(e.message) + "</div>");
+    view().innerHTML = box("", '<div class="err">Couldn\'t load the league: ' + esc(e.message) + '</div><p class="muted small">Sleeper or this site may be having a moment. Reload to try again.</p>');
   });
 })();
-</script>

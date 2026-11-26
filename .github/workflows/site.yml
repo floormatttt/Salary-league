@@ -1,0 +1,77 @@
+# Sleeper sync every 5 minutes + deploy to GitHub Pages.
+#  - schedule / "Run sync now": run sync/sync.mjs; if league data changed, commit it and redeploy.
+#  - push to main (code changes, commissioner edits): redeploy.
+# Commits made here with GITHUB_TOKEN don't trigger another run, so the sync job deploys itself.
+name: Sync and deploy
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  sync:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    # one sync at a time (a newer waiting sync replaces an older waiting one)
+    concurrency:
+      group: sync
+      cancel-in-progress: false
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sync from Sleeper and commit
+        id: commit
+        run: |
+          git config user.name "league-sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch -q origin main && git reset -q --hard origin/main
+            node sync/sync.mjs
+            if git diff --quiet -- data; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+            git add data
+            git commit -q -m "Sync from Sleeper"
+            # a commissioner may have committed meanwhile: start over on the new data
+            if git push -q origin HEAD:main; then echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 5
+          done
+          echo "Couldn't push after 3 tries; the next run will pick it up." && exit 1
+
+  deploy:
+    needs: sync
+    if: always() && (github.event_name == 'push' || needs.sync.outputs.changed == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # a waiting deploy is only ever replaced by a newer deploy, which publishes the latest main anyway
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tools/build.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,20 +1,21 @@
-// Generates Apps Script partials from node-runnable sources, so there is
-// one copy of each file to maintain.
-//   lib/LeagueMath.js -> src/LeagueMath.html  (<script> partial for the client)
-// Run: npm run build   (also runs before push and test)
-import { readFileSync, writeFileSync } from "node:fs";
+// Assembles the static site into dist/ for GitHub Pages:
+//   site/*  +  lib/*.js -> dist/lib/  +  data/*.json -> dist/data/
+// Script and style URLs get ?v=<build> so browsers pick up new code after a deploy.
+// Run: npm run build
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const targets = [
-  { from: "lib/LeagueMath.js", to: "src/LeagueMath.html" },
-];
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const DIST = path.join(ROOT, "dist");
+const version = (process.env.GITHUB_SHA || String(Date.now())).slice(0, 10);
 
-for (const t of targets) {
-  const js = readFileSync(t.from, "utf8")
-    // The node export line is harmless in the browser, but drop it to keep the partial clean
-    .replace(/^if \(typeof module !== "undefined"\).*$/m, "")
-    .trimEnd();
-  if (/<\/script/i.test(js)) throw new Error(`${t.from} contains </script>, which would break the partial`);
-  const out = `<!-- GENERATED from ${t.from} by tools/build.mjs. Edit that file, not this one. -->\n<script>\n${js}\n</script>\n`;
-  writeFileSync(t.to, out);
-  console.log(`built ${t.to}`);
-}
+rmSync(DIST, { recursive: true, force: true });
+mkdirSync(path.join(DIST, "lib"), { recursive: true });
+cpSync(path.join(ROOT, "site"), DIST, { recursive: true });
+for (const f of readdirSync(path.join(ROOT, "lib")).filter(f => f.endsWith(".js"))) cpSync(path.join(ROOT, "lib", f), path.join(DIST, "lib", f));
+cpSync(path.join(ROOT, "data"), path.join(DIST, "data"), { recursive: true });
+const index = path.join(DIST, "index.html");
+writeFileSync(index, readFileSync(index, "utf8").replace(/__VERSION__/g, version));
+writeFileSync(path.join(DIST, ".nojekyll"), ""); // serve files as-is
+console.log(`built dist/ (version ${version})`);

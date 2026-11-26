@@ -1,4 +1,3 @@
-<style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --text: #15171c; --muted: #646b78; --line: #e3e6eb;
     --accent: #2457d6; --accent-soft: #e7eeff; --good: #157a3a; --bad: #b42318; --warn: #9a5b00;
@@ -217,4 +216,3 @@
   .status.HOLD { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
   dl.bio { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
   dl.bio dt { color: var(--muted); font-size: 13px; } dl.bio dd { margin: 0; }
-</style>

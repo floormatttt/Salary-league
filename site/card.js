@@ -1,4 +1,3 @@
-<script>
 /* Player card: shared formatting helpers + renderers + a small controller.
  * Order on the card: Bio -> Game log -> Transaction history -> Stats -> Contract.
  * Needs api(fn, ...args) -> Promise (defined in SiteApp). */
@@ -13,7 +12,10 @@ function f1(v) { return v == null || isNaN(v) ? "—" : (Math.round(v * 10) / 10
 function f2(v) { return v == null || isNaN(v) ? "—" : (Math.round(v * 100) / 100).toFixed(2); }
 function pct(v) { return v == null || isNaN(v) ? "—" : (v * 100).toFixed(1) + "%"; }
 function shortDate(d) { var x = new Date(d); return isNaN(x) ? "" : (x.getMonth() + 1) + "/" + x.getDate(); }
-function longDate(d) { var x = new Date(d); return isNaN(x) ? "" : x.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+function longDate(d) {
+  var x = new Date(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + "T12:00:00" : d); // date-only strings: no time-zone shift
+  return isNaN(x) ? "" : x.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 function moneyOf(s) { var n = Number(String(s).replace(/[$,]/g, "")); return String(s).trim() === "" || isNaN(n) ? null : n; }
 function stat(label, val) { return '<div class="stat"><b>' + esc(val) + "</b><span>" + esc(label) + "</span></div>"; }
 function loading(msg) { return '<div class="loading">' + esc(msg || "Loading") + "</div>"; }
@@ -98,7 +100,7 @@ var Card = (function () {
       return box((k.hold ? "Cap hold" : "Contract") + (k.team ? " · " + k.team : ""),
         summary + '<div class="tbl"><table><tr><th>Season</th><th>Salary</th><th>Status</th></tr>' + rows + "</table></div>" +
         (k.details ? '<p class="small"><b>Details:</b> ' + esc(k.details) + "</p>" : "") +
-        '<p class="muted small">Master list row ' + k.row + (k.onRoster !== "" ? " · on " + esc(k.onRoster) + " roster(s)" : "") + "</p>");
+        (k.hold ? "" : '<p class="muted small">On ' + esc(k.onRoster) + " league roster" + (k.onRoster === "1" ? "" : "s") + "</p>"));
     }).join("");
   }
 
@@ -210,4 +212,3 @@ var Card = (function () {
 
   return { open: open, close: close, bind: bind, render: { header: header, gameLog: gameLog, txns: txns, contract: contract, bio: bio, stats: stats } };
 })();
-</script>
