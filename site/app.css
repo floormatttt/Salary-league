@@ -808,3 +808,7 @@
   .seasons { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .fa-start { display: flex; align-items: center; gap: 8px; min-height: 40px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
   .badge.Rest { background: color-mix(in srgb, var(--m-po) 15%, transparent); color: var(--m-po); }
+
+  /* let the team switcher menu escape the banner */
+  .team-banner { overflow: visible; z-index: 5; }
+  .team-banner::after { border-radius: 0 0 18px 18px; }
