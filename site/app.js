@@ -560,7 +560,7 @@ function pageTeam(code) {
   ["starters", "bench", "ir", "taxi"].forEach(function (slot) {
     var ps = b.players.filter(function (x) { return x.slot === slot; });
     if (!ps.length) return;
-    body += '<tr class="grp"><td colspan="' + cols + '">' + SLOT[slot] + " · " + ps.length + "</td></tr>";
+    body += '<tr class="grp"><td colspan="' + cols + '"><span class="gl">' + SLOT[slot] + " · " + ps.length + "</span></td></tr>";
     ps.forEach(function (x) {
       body += '<tr><td class="name">' + pwho(x.name) + extFlag(x.c, t.code) + (x.c ? "" : '<span class="flag bad">No contract</span>') +
         (x.c && /pending/i.test(x.c.det) ? '<span class="flag">Pending</span>' : "") + '</td><td class="l muted">' + esc(x.c ? x.c.nba : "") + "</td>" +
@@ -568,14 +568,14 @@ function pageTeam(code) {
     });
   });
   if (b.holds.length) {
-    body += '<tr class="grp"><td colspan="' + cols + '">Cap holds · ' + b.holds.length + "</td></tr>";
+    body += '<tr class="grp"><td colspan="' + cols + '"><span class="gl">Cap holds · ' + b.holds.length + "</span></td></tr>";
     b.holds.forEach(function (h) {
       body += '<tr><td class="name">' + pwho(h.name) + (h.c ? "" : '<span class="flag bad">Not on Master list</span>') +
         '</td><td class="l muted">' + esc(h.c ? h.c.nba : "") + "</td>" +
         L.seasons.map(function (_, i) { return "<td>" + salCell(h.c, i) + "</td>"; }).join("") + "</tr>";
     });
   }
-  body += '<tr class="grp"><td colspan="' + cols + '">Totals</td></tr>' +
+  body += '<tr class="grp"><td colspan="' + cols + '"><span class="gl">Totals</span></td></tr>' +
     '<tr><td>Cash considerations</td><td></td>' + L.seasons.map(function (_, i) {
       return '<td class="' + (i === 0 ? cls(b.cash) : "") + '">' + (i === 0 ? signed(b.cash) : "") + "</td>"; }).join("") + "</tr>" +
     '<tr class="total"><td>Total payroll</td><td></td>' + b.payroll.map(function (v) {

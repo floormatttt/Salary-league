@@ -1341,3 +1341,10 @@
     /* Contracts: FPPG + Yrs hidden on phones, salaries first */
     table.pltbl tr > :nth-child(4), table.pltbl tr > :nth-child(5) { display: none; }
   }
+  /* sticky first column always paints above scrolled cells (salary bands keep their layers inside their own cell) */
+  th:first-child, td:first-child { z-index: 3; }
+  td:has(> .mny.has-ck) { isolation: isolate; }
+  /* full-width group rows: the label sticks to the left edge while the table scrolls sideways */
+  tr.grp td { position: static; }
+  tr.grp .gl { position: sticky; left: 11px; display: inline-block; }
+  @media (max-width: 640px) { tr.grp .gl { left: 8px; } }
