@@ -125,7 +125,7 @@
   {"id":122,"n":"Paul Reed","nba":"DET","sal":[14,14,"UFA",null,null,null,null],"st":["","TO","","","","",""],"det":""},
   {"id":123,"n":"Daniss Jenkins","nba":"DET","sal":[13.4,13.4,13.4,"UFA",null,null,null],"st":["","","","","","",""],"det":""},
   {"id":124,"n":"Isaiah Joe","nba":"DET","sal":[12.4,13.3,"UFA",null,null,null,null],"st":["","","","","","",""],"det":""},
-  {"id":125,"n":"Ausar Thompson","nba":"DET","sal":[11.1,"RFA",null,null,null,null,null],"st":["","","","","","",""],"det":"Rookie"},
+  {"id":125,"n":"Ausar Thompson","nba":"DET","sal":[11.1,21.5,21.5,21.5,21.5,"UFA",null],"st":["","","","","","",""],"det":"Rookie; Ext 27-28"},
   {"id":126,"n":"Duncan Robinson","nba":"DET","sal":[7,7,"UFA",null,null,null,null],"st":["","","","","","",""],"det":""},
   {"id":127,"n":"Kevin Huerter","nba":"DET","sal":[6,6,6,"UFA",null,null,null],"st":["","","","","","",""],"det":""},
   {"id":128,"n":"Ronald Holland II","nba":"DET","sal":[6,6,"RFA",null,null,null,null],"st":["","TO","","","","",""],"det":"Rookie"},
