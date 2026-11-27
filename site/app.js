@@ -583,7 +583,7 @@ function pageTeam(code) {
     "<tr><td>Level</td><td></td>" + b.payroll.map(function (v) { return "<td>" + tierChip(v) + "</td>"; }).join("") + "</tr>" +
     "<tr><td>Room to $" + lim.hardCap + "M max</td><td></td>" + b.payroll.map(function (v) {
       return '<td class="' + cls(lim.hardCap - v) + '">' + money(lim.hardCap - v) + "</td>"; }).join("") + "</tr>";
-  var table = '<div class="tbl"><table><tr><th>Player</th><th class=l>NBA</th>' + seasonsTh + "</tr>" + body + "</table></div>";
+  var table = '<div class="tbl"><table class="teamtbl"><tr><th>Player</th><th class=l>NBA</th>' + seasonsTh + "</tr>" + body + "</table></div>";
 
   var picks = (L.picks[t.code] || []);
   var bySeason = {};
@@ -726,7 +726,7 @@ function plTable() {
       '</td><td class="l muted">' + esc(r.c ? r.c.nba : "") + '</td><td class="l">' + tcode(r.team) + "</td>" + plProdCells(r) +
       L.seasons.map(function (_, i) { var s = salCell(r.c, i); return "<td" + (s ? "" : ' class="dim"') + ">" + (s || "·") + "</td>"; }).join("") + "</tr>";
   }).join("");
-  return '<div class="tbl"><table><tr>' + sortTh("n", "Player") + sortTh("nba", "NBA", 1) + sortTh("team", "Team", 1) + sortTh("fp", "FPPG") + sortTh("yl", "Yrs") +
+  return '<div class="tbl"><table class="pltbl"><tr>' + sortTh("n", "Player") + sortTh("nba", "NBA", 1) + sortTh("team", "Team", 1) + sortTh("fp", "FPPG") + sortTh("yl", "Yrs") +
     L.seasons.map(function (s, i) { return sortTh("s" + i, esc(s)); }).join("") + "</tr>" +
     (body || '<tr><td colspan="' + (L.seasons.length + 5) + '" class="empty">Nobody matches.</td></tr>') + "</table></div>" +
     '<div class="muted small" style="margin:8px 2px 0">Showing ' + shown.length + " of " + rows.length + "</div>" +

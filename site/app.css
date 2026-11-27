@@ -1268,3 +1268,76 @@
   /* stats: advanced analytics placeholder */
   .box.soon { display: grid; place-items: center; gap: 10px; padding: 70px 20px; text-align: center; color: var(--accent); }
   .box.soon h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 34px; color: var(--text); }
+
+  /* ================= phone layout ================= */
+  @media (max-width: 640px) {
+    /* tables: slimmer cells and a narrow sticky name column, so the numbers get the room */
+    th, td { padding: 7px 8px; font-size: 13px; }
+    th { font-size: 10px; letter-spacing: .04em; }
+    tr.grp td { padding: 6px 8px; font-size: 10px; }
+    td.name { max-width: 136px; min-width: 0; white-space: normal; }
+    td.name .who { display: flex; max-width: 128px; gap: 7px; }
+    td.name .who .plink { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+    td.name .flag { display: block; width: fit-content; margin: 2px 0 0 33px; font-size: 9.5px; padding: 0 5px; }
+    td.name .rnk { display: none; }
+    .av { width: 24px; height: 24px; }
+    .tbl table:not(.rules) td:first-child, .tbl table:not(.rules) th:first-child { box-shadow: 4px 0 8px -6px rgba(0, 0, 0, .25); }
+    /* standings / future cap team column */
+    td .tm { max-width: 132px; } td .tm > div { min-width: 0; }
+    td .tm a.team, td .tm .small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td .tm .rk { margin-right: 6px; }
+    .mny { padding: 2px 6px 2px 5px; gap: 3px; }
+    .mny em { font-size: 8.5px; }
+    td:has(> .mny.has-ck)::before { inset: 5px 0; }
+
+    /* stats leaderboards swipe sideways instead of stacking */
+    .leaders-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; margin: 0 -16px 4px; padding: 0 16px 6px; scrollbar-width: none; }
+    .leaders-grid::-webkit-scrollbar { display: none; }
+    .leaders-grid > .box { flex: 0 0 86%; scroll-snap-align: center; margin-bottom: 0; }
+
+    /* team payroll box: three team cells in one row */
+    .pay-team { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .pay-cell { padding: 9px 9px 8px; }
+    .pay-cell > b { font-size: 17px; }
+    .pay-cell .pl-sub { font-size: 10.5px; }
+    .pipcount { font-size: 14px !important; }
+    .pay-line b { font-size: 19px; }
+    .paybox .big { font-size: 44px; }
+
+    /* money legend: tighter */
+    .mlegend { gap: 4px 10px; font-size: 12px; }
+
+    /* toolbars: search full width, dropdown + filter button share a row */
+    .ftool { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+    .ftool .search { grid-column: 1 / -1; }
+    .ftool .dd, .ftool .dd-btn { width: 100%; }
+    .morebtn { height: 42px; }
+    .fmenu { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 82vh; border-radius: 18px; }
+
+    /* page heads with tabs + a dropdown */
+    .pagehead .row { width: 100%; }
+    .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  }
+  @media (max-width: 640px) {
+    /* NBA team column hidden on phones (Contracts + team pages) so salaries come into view */
+    table.pltbl tr > :nth-child(2), table.teamtbl tr > :nth-child(2) { display: none; }
+    td.name .flag { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .pipcount { white-space: nowrap; font-size: 13px !important; }
+    .pipcount small { font-size: 10px; }
+  }
+  @media (max-width: 640px) {
+    /* Teams: two compact cards per row */
+    .tgrid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+    .tcard-top { gap: 8px; padding: 10px; flex-wrap: wrap; position: relative; }
+    .tcard-top .badge-team { display: none; }
+    .tcard-top .grow { min-width: 0; flex: 1 1 100%; }
+    .tcard-top b { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 30px; }
+    .tcard-top span:not(.badge-team) { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tcard-top .rec { position: absolute; top: 10px; right: 10px; font-size: 12px !important; }
+    .tcard-body { padding: 9px 10px 11px; }
+    .tcard-body .row { flex-wrap: wrap; gap: 4px; }
+    .tcard-body .row b { font-size: 15px; }
+    .tcard-body .tier { font-size: 10.5px; padding: 1px 6px; }
+    /* Contracts: FPPG + Yrs hidden on phones, salaries first */
+    table.pltbl tr > :nth-child(4), table.pltbl tr > :nth-child(5) { display: none; }
+  }
