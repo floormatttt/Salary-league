@@ -156,6 +156,8 @@ function api(fn) {
 var S = {
   L: null, books: {}, rIdx: null, log: null, rules: null, hash: "",
   pl: { q: "", f: "all", team: "", sort: "s0", asc: false, limit: 150 },
+  st: { season: "", q: "", f: "all", team: "", sort: "fppg", asc: false, per: "game", qual: true, limit: 100 },
+  stats: {},
   lg: { team: "", type: "", season: "", n: 100 },
   trade: { teams: [], moves: [] }, shareUrl: "",
   admin: { tab: "pending", edit: null, q: "", log: null, waive: null },
@@ -212,6 +214,8 @@ function onPick(act, v, el) {
   else if (act === "plTeam") { S.pl.team = v; S.pl.limit = 150; rerender(); }
   else if (act === "logTeam") { S.lg.team = v; S.lg.n = 100; rerender(); }
   else if (act === "logType") { S.lg.type = v; S.lg.n = 100; rerender(); }
+  else if (act === "stTeam") { S.st.team = v; S.st.limit = 100; rerender(); }
+  else if (act === "stSeason") { S.st.season = v; S.st.limit = 100; rerender(); }
   else if (act === "logSeason") { S.lg.season = v; S.lg.n = 100; rerender(); }
 }
 function closeMenus(except) {
@@ -260,7 +264,7 @@ function avatar(name) {
 // player link with a photo in front
 function pwho(name, label) { return '<span class="who">' + avatar(name) + pbtn(name, label) + "</span>"; }
 function book(code) { return S.books[code] || (S.books[code] = LM.teamBook(S.L, code)); }
-function setLeague(L) { S.projIdx = null; S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
+function setLeague(L) { S.projIdx = null; S.stRows = null; S.fpIdx = null; S.L = L; S.books = {}; S.rIdx = null; S.plRows = null; LM.resetIndex(L); }
 // norm(name) -> { code, slot } for everyone on a fantasy roster
 function rosterIdx() {
   if (S.rIdx) return S.rIdx;
@@ -304,7 +308,7 @@ var Nav = {
   },
 };
 
-var PAGES = { home: pageHome, contracts: pageContracts, standings: pageStandings, team: pageTeam, trade: pageTrade, log: pageLog, rules: pageRules, admin: pageAdmin };
+var PAGES = { home: pageHome, contracts: pageContracts, stats: pageStats, standings: pageStandings, team: pageTeam, trade: pageTrade, log: pageLog, rules: pageRules, admin: pageAdmin };
 var ALIAS = { players: "contracts" };   // old links
 
 function route(h, keepScroll) {
@@ -458,7 +462,8 @@ function pageTeams() {
     '<div class="tgrid">' + cards + "</div>";
 }
 function pageTeam(code) {
-  var L = S.L;
+  var L = S.L, cur0 = statSeasons()[0];
+  if (!S.stats[cur0]) loadStats(cur0).then(function () { if (/^team\//.test(S.hash)) rerender(); }, function () {});
   var t = LM.teamByCode(L, code);
   if (!t) return pageTeams();
   var b = book(t.code), p = b.payroll[0], n = L.seasons.length;
@@ -491,7 +496,7 @@ function pageTeam(code) {
     if (!ps.length) return;
     body += '<tr class="grp"><td colspan="' + cols + '">' + SLOT[slot] + " · " + ps.length + "</td></tr>";
     ps.forEach(function (x) {
-      body += '<tr><td class="name">' + pwho(x.name) + (x.c ? "" : '<span class="flag bad">No contract</span>') +
+      body += '<tr><td class="name">' + pwho(x.name) + extFlag(x.c, t.code) + (x.c ? "" : '<span class="flag bad">No contract</span>') +
         (x.c && /pending/i.test(x.c.det) ? '<span class="flag">Pending</span>' : "") + '</td><td class="l muted">' + esc(x.c ? x.c.nba : "") + "</td>" +
         L.seasons.map(function (_, i) { return "<td>" + salCell(x.c, i) + "</td>"; }).join("") +
         '<td class="l muted small">' + esc(x.c ? x.c.det : "") + "</td></tr>";
@@ -543,12 +548,13 @@ function playerRows() {
   });
   return (S.plRows = rows);
 }
-var PL_FILTERS = [["all", "All"], ["rostered", "Rostered"], ["fa", "Free agents"], ["holds", "Cap holds"], ["pending", "Pending"]];
+var PL_FILTERS = [["all", "All"], ["rostered", "Rostered"], ["fa", "Free agents"], ["ext", "Extension eligible"], ["holds", "Cap holds"], ["pending", "Pending"]];
 function plKind(r, f) {
   if (f === "rostered") return r.rostered;
   if (f === "fa") return !(r.rostered || r.hold || r.pending);
   if (f === "holds") return r.hold;
   if (f === "pending") return r.pending;
+  if (f === "ext") return !!extEligible(r.c, r.team);
   return true;
 }
 function plFiltered() {
@@ -586,7 +592,7 @@ function plTable() {
   var shown = rows.slice(0, S.pl.limit);
   var body = shown.map(function (r) {
     return '<tr><td class="name">' + pwho(r.n, r.hold ? plain(r.n) : "") + (r.missing ? '<span class="flag bad">No contract</span>' : "") + (r.pending ? '<span class="flag">Pending</span>' : "") +
-      (r.hold ? '<span class="flag bad">Cap hold</span>' : "") +
+      (r.hold ? '<span class="flag bad">Cap hold</span>' : "") + extFlag(r.c, r.team) +
       '</td><td class="l muted">' + esc(r.c ? r.c.nba : "") + '</td><td class="l">' + tcode(r.team) + "</td>" +
       L.seasons.map(function (_, i) { var s = salCell(r.c, i); return "<td" + (s ? "" : ' class="dim"') + ">" + (s || "·") + "</td>"; }).join("") + "</tr>";
   }).join("");
@@ -597,6 +603,8 @@ function plTable() {
     (rows.length > shown.length ? '<button class="more" data-act="plMore">Show ' + Math.min(150, rows.length - shown.length) + " more</button>" : "");
 }
 function pageContracts() {
+  var cur = statSeasons()[0];
+  if (!S.stats[cur]) loadStats(cur).then(function () { if (/^contracts/.test(S.hash)) rerender(); }, function () {});
   var all = playerRows();
   var counts = {}; PL_FILTERS.forEach(function (f) { counts[f[0]] = all.filter(function (r) { return plKind(r, f[0]); }).length; });
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(S.L.season) + '</div><h1>Contracts</h1><div class="sub">Every contract on the Master list, plus anyone rostered without one</div></div>' +
@@ -606,6 +614,145 @@ function pageContracts() {
     '<div class="seg" style="margin-bottom:12px">' + PL_FILTERS.map(function (f) {
       return '<button data-act="plFilter" data-v="' + f[0] + '" class="' + (S.pl.f === f[0] ? "on" : "") + '">' + f[1] + '<span class="n">' + counts[f[0]] + "</span></button>"; }).join("") + "</div>" +
     moneyLegend() + '<div id="plTable" style="margin-top:12px">' + plTable() + "</div>";
+}
+
+/* ============================ stats ============================ */
+// Season totals for every NBA player from Sleeper (one request per season), scored with the
+// league's own settings, so fantasy points match Sleeper's (threes, bonuses, technicals and all).
+function statSeasons() {
+  var y = Number(LIVE.league && LIVE.league.season) || new Date().getFullYear();
+  return [y, y - 1, y - 2].map(String);
+}
+function loadStats(season) {
+  if (S.stats[season]) return Promise.resolve(S.stats[season]);
+  return getJson(SLEEPER + "/stats/nba/regular/" + season, "Sleeper stats").then(function (d) { S.stats[season] = d || {}; return S.stats[season]; });
+}
+function statRows(season) {
+  if (S.stRows && S.stRows.season === season) return S.stRows.rows;
+  var data = S.stats[season] || {}, sc = (LIVE.league && LIVE.league.scoring_settings) || {}, idx = rosterIdx();
+  var keys = Object.keys(sc).filter(function (k) { return Number(sc[k]); });
+  var cur = statSeasons()[0] === season;
+  var rows = Object.keys(data).map(function (pid) {
+    var x = data[pid], p = DATA.players[pid];
+    if (!p || !x || !(x.gp > 0)) return null;
+    var name = p[0], k = LM.norm(name), r = idx[k], c = contractByName(name);
+    var fp = keys.reduce(function (t, key) { return t + Number(sc[key]) * (Number(x[key]) || 0); }, 0);
+    var gp = x.gp, sal = c && typeof c.sal[0] === "number" ? c.sal[0] : null;
+    return { pid: pid, name: name, nba: p[1] || "", team: r ? r.code : "", c: c, gp: gp, min: x.min || 0, fp: fp, fppg: fp / gp,
+      pts: x.pts || 0, reb: x.reb || 0, ast: x.ast || 0, stl: x.stl || 0, blk: x.blk || 0, tpm: x.tpm || 0, to: x.to || 0,
+      fgp: x.fga ? (x.fgm || 0) / x.fga : null, ftp: x.fta ? (x.ftm || 0) / x.fta : null, tpp: x.tpa ? (x.tpm || 0) / x.tpa : null,
+      sal: sal, value: cur && sal ? fp / gp / sal : null };
+  }).filter(Boolean);
+  S.stRows = { season: season, rows: rows };
+  return rows;
+}
+// This season's FPPG by player (league scoring), once the current season's stats are loaded
+function fppgOf(name) {
+  var cur = statSeasons()[0];
+  if (!S.stats[cur]) return null;
+  if (!S.fpIdx || S.fpIdx.season !== cur) {
+    var idx = {};
+    statRows(cur).forEach(function (r) { idx[LM.norm(r.name)] = r.fppg; });
+    S.fpIdx = { season: cur, idx: idx };
+  }
+  var v = S.fpIdx.idx[LM.norm(name)];
+  return v == null ? null : v;
+}
+// Extension eligible (league rules): in the last year of his deal (eligibility runs from the offseason
+// before his free-agency year until the playoffs), and a rookie or max eligible (22.5+ FPPG).
+// Teams at the 2nd apron or in the tax can't extend, so those come back with blocked: true.
+var MAX_FPPG = 22.5;
+function extEligible(c, team) {
+  if (!c || c.hold || typeof c.sal[0] !== "number" || typeof c.sal[1] === "number") return null;
+  var rookie = /rookie/i.test(c.det || ""), fp = fppgOf(c.n), max = fp != null && fp > MAX_FPPG;
+  if (!rookie && !max) return null;
+  var tier = team ? LM.tierOf(book(team).payroll[0]).key : "";
+  return { why: max ? "Max eligible (" + fp.toFixed(1) + " FPPG)" : "Rookie", blocked: tier === "second" || tier === "tax" || tier === "over", tier: tier };
+}
+function extFlag(c, team) {
+  var e = extEligible(c, team);
+  if (!e) return "";
+  return e.blocked ? '<span class="flag ext off" title="' + esc(e.why) + " · his team is at the 2nd apron or above, so it can't extend\">Ext eligible · team can't</span>"
+    : '<span class="flag ext" title="' + esc(e.why) + '">Ext eligible</span>';
+}
+function statQualifier(rows) { var mx = rows.reduce(function (m, r) { return Math.max(m, r.gp); }, 0); return Math.max(1, Math.round(mx * 0.25)); }
+var ST_FILTERS = [["all", "All players"], ["rostered", "Rostered"], ["fa", "Free agents"]];
+function statFiltered() {
+  var o = S.st, rows = statRows(o.season), q = o.q.trim(), qn = LM.norm(q), min = o.qual ? statQualifier(rows) : 1;
+  rows = rows.filter(function (r) {
+    if (o.f === "rostered" && !r.team) return false;
+    if (o.f === "fa" && r.team) return false;
+    if (o.team && r.team !== o.team) return false;
+    if (q) return LM.norm(r.name).indexOf(qn) >= 0 || r.nba === q.toUpperCase();
+    return r.gp >= min;
+  });
+  var k = o.sort, per = o.per === "game", dir = o.asc ? 1 : -1;
+  var v = function (r) {
+    if (k === "name") return r.name.toLowerCase();
+    if (k === "team") return r.team || "~";
+    var x = r[k];
+    if (per && ["min", "fp", "pts", "reb", "ast", "stl", "blk", "tpm", "to"].indexOf(k) >= 0) x = x / r.gp;
+    return x == null ? null : x;
+  };
+  return rows.map(function (r) { return { r: r, v: v(r) }; }).sort(function (a, b) {
+    if (a.v === b.v) return b.r.fppg - a.r.fppg;
+    if (a.v === null) return 1; if (b.v === null) return -1;
+    return (a.v < b.v ? -1 : 1) * dir;
+  }).map(function (x) { return x.r; });
+}
+function stTh(k, label, l, title) {
+  var on = S.st.sort === k;
+  return '<th class="sort' + (l ? " l" : "") + (on ? " on" + (S.st.asc ? " asc" : "") : "") + '" data-act="stSort" data-k="' + k + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" + label + "</th>";
+}
+function statTable() {
+  var rows = statFiltered(), o = S.st, per = o.per === "game", shown = rows.slice(0, o.limit);
+  var n = function (r, k, d) { var x = per ? r[k] / r.gp : r[k]; return per || d ? x.toFixed(d == null ? 1 : d) : String(Math.round(x)); };
+  var pc = function (x) { return x == null ? '<span class="dim">—</span>' : (x * 100).toFixed(1); };
+  var body = shown.map(function (r, i) {
+    return "<tr><td class=\"name\"><span class=\"rnk\">" + (i + 1) + "</span>" + pwho(r.name) + '</td><td class="l">' + tcode(r.team) + '</td><td class="l muted">' + esc(r.nba) + "</td>" +
+      "<td>" + r.gp + "</td><td>" + n(r, "min") + '</td><td class="fpcell"><b>' + r.fppg.toFixed(1) + "</b></td><td>" + (per ? Math.round(r.fp) : r.fp.toFixed(1)) +
+      "</td><td>" + n(r, "pts") + "</td><td>" + n(r, "reb") + "</td><td>" + n(r, "ast") + "</td><td>" + n(r, "stl") + "</td><td>" + n(r, "blk") +
+      "</td><td>" + n(r, "tpm") + "</td><td>" + n(r, "to") + "</td><td>" + pc(r.fgp) + "</td><td>" + pc(r.tpp) + "</td><td>" + pc(r.ftp) + "</td>" +
+      "<td>" + (r.c ? salCell(r.c, 0) || '<span class="dim">—</span>' : '<span class="dim">—</span>') + "</td><td>" + (r.value != null ? '<span class="val">' + r.value.toFixed(2) + "</span>" : '<span class="dim">—</span>') + "</td></tr>";
+  }).join("");
+  return '<div class="tbl"><table class="stbl"><tr>' + stTh("name", "Player") + stTh("team", "Team", 1) + '<th class="l">NBA</th>' + stTh("gp", "GP") + stTh("min", "MIN") +
+    stTh("fppg", "FPPG", 0, "Fantasy points per game, league scoring") + stTh("fp", "FP", 0, "Total fantasy points") + stTh("pts", "PTS") + stTh("reb", "REB") + stTh("ast", "AST") +
+    stTh("stl", "STL") + stTh("blk", "BLK") + stTh("tpm", "3PM") + stTh("to", "TO") + stTh("fgp", "FG%") + stTh("tpp", "3P%") + stTh("ftp", "FT%") +
+    stTh("sal", esc(S.L.season)) + stTh("value", "Value", 0, "Fantasy points per game per $1M of salary") + "</tr>" +
+    (body || '<tr><td colspan="19" class="empty">Nobody matches.</td></tr>') + "</table></div>" +
+    '<div class="muted small" style="margin:8px 2px 0">Showing ' + shown.length + " of " + rows.length + "</div>" +
+    (rows.length > shown.length ? '<button class="more" data-act="stMore">Show ' + Math.min(100, rows.length - shown.length) + " more</button>" : "");
+}
+function leaderBoard(title, rows, val, fmt) {
+  return '<div class="box leaders"><div class="panel-head"><h3>' + esc(title) + "</h3></div>" + rows.slice(0, 5).map(function (r, i) {
+    return '<div class="list-row"><span class="rk' + (i === 0 ? " top" : "") + '">' + (i + 1) + "</span>" + avatar(r.name) + '<div class="nm">' + pbtn(r.name) +
+      '<span class="muted small">' + esc(r.nba) + (r.team ? " · " + esc(teamName(r.team)) : " · free agent") + '</span></div><div class="num">' + fmt(val(r)) + "</div></div>";
+  }).join("") + "</div>";
+}
+function pageStats() {
+  var o = S.st, seasons = statSeasons();
+  if (!o.season) o.season = seasons[0];
+  if (!S.stats[o.season]) {
+    loadStats(o.season).then(function () { if (/^stats/.test(S.hash)) rerender(); }, function (e) { view().innerHTML = box("", '<div class="err">' + esc(e.message) + "</div>"); });
+    return '<div class="pagehead"><div><div class="eyebrow">' + esc(seasonLabel(o.season)) + "</div><h1>Stats</h1></div></div>" + loading("Loading stats from Sleeper");
+  }
+  var all = statRows(o.season), min = statQualifier(all), q = all.filter(function (r) { return r.gp >= min; });
+  var byFp = q.slice().sort(function (a, b) { return b.fppg - a.fppg; });
+  var byVal = q.filter(function (r) { return r.value != null && r.team; }).sort(function (a, b) { return b.value - a.value; });
+  var fas = byFp.filter(function (r) { return !r.team; });
+  var boards = '<div class="leaders-grid">' + leaderBoard("FPPG leaders", byFp, function (r) { return r.fppg; }, function (v) { return '<b class="fpv">' + v.toFixed(1) + "</b>"; }) +
+    (byVal.length ? leaderBoard("Best value · FPPG per $1M", byVal, function (r) { return r.value; }, function (v) { return '<span class="val">' + v.toFixed(2) + "</span>"; }) : "") +
+    leaderBoard("Best free agents", fas, function (r) { return r.fppg; }, function (v) { return '<b class="fpv">' + v.toFixed(1) + "</b>"; }) + "</div>";
+  return '<div class="pagehead"><div><div class="eyebrow">' + esc(seasonLabel(o.season)) + '</div><h1>Stats</h1></div>' +
+    dropdown("stSeason", o.season, seasons.map(function (x) { return { v: x, html: '<span class="dd-name">' + esc(seasonLabel(x)) + " season</span>" }; }), "Season") + "</div>" +
+    boards +
+    '<div class="toolbar"><div class="search"><input type="search" id="stq" placeholder="Search players or NBA teams" value="' + esc(o.q) + '" autocomplete="off" aria-label="Search"></div>' +
+    dropdown("stTeam", o.team, teamItems("All league teams"), "League team") + "</div>" +
+    '<div class="row start" style="gap:10px">' +
+    '<div class="seg">' + ST_FILTERS.map(function (f) { return '<button data-act="stFilter" data-v="' + f[0] + '" class="' + (o.f === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") + "</div>" +
+    '<div class="seg">' + [["game", "Per game"], ["total", "Totals"]].map(function (f) { return '<button data-act="stPer" data-v="' + f[0] + '" class="' + (o.per === f[0] ? "on" : "") + '">' + f[1] + "</button>"; }).join("") + "</div>" +
+    '<div class="seg"><button data-act="stQual" class="' + (o.qual ? "on" : "") + '">' + min + "+ games</button></div></div>" +
+    '<div id="stTable" style="margin-top:12px">' + statTable() + "</div>";
 }
 
 /* ============================ trade machine ============================ */
@@ -1223,6 +1370,12 @@ document.addEventListener("click", function (ev) {
     return;
   }
   ppClose(t.closest && t.closest(".pp"));
+  var sth = t.closest && t.closest("th[data-act=stSort]");
+  if (sth) {
+    var sk = sth.getAttribute("data-k");
+    if (S.st.sort === sk) S.st.asc = !S.st.asc; else { S.st.sort = sk; S.st.asc = sk === "name" || sk === "team"; }
+    $("stTable").innerHTML = statTable(); return;
+  }
   var th = t.closest && t.closest("th[data-act=plSort]");
   if (th) {
     var k = th.getAttribute("data-k");
@@ -1240,6 +1393,10 @@ document.addEventListener("click", function (ev) {
 
   switch (act) {
     case "plFilter": S.pl.f = b.getAttribute("data-v"); S.pl.limit = 150; rerender(); break;
+    case "stFilter": S.st.f = b.getAttribute("data-v"); S.st.limit = 100; rerender(); break;
+    case "stPer": S.st.per = b.getAttribute("data-v"); rerender(); break;
+    case "stQual": S.st.qual = !S.st.qual; S.st.limit = 100; rerender(); break;
+    case "stMore": S.st.limit += 100; $("stTable").innerHTML = statTable(); break;
     case "plMore": S.pl.limit += 150; $("plTable").innerHTML = plTable(); break;
     case "logMore": S.lg.n += 100; $("logList").innerHTML = logList(); break;
 
@@ -1376,7 +1533,8 @@ document.addEventListener("focusin", function (ev) { if (ev.target.classList && 
 document.addEventListener("input", function (ev) {
   var t = ev.target;
   if (t.classList && t.classList.contains("pp-in")) ppRender(t);
-  if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
+  if (t.id === "stq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.st.q = t.value; S.st.limit = 100; $("stTable").innerHTML = statTable(); }, 120); }
+  else if (t.id === "plq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () { S.pl.q = t.value; S.pl.limit = 150; $("plTable").innerHTML = plTable(); }, 120); }
   else if (t.id === "extName" || t.id === "extAmt") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {
     refreshExt(); }, 150); }
   else if (t.id === "cq") { clearTimeout(inputTimer); inputTimer = setTimeout(function () {

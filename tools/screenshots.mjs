@@ -34,6 +34,15 @@ D.contracts.rows.forEach((c, i) => { const k = require_norm(c.n); if (!espn[k]) 
 const PHOTO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 70"><rect width="96" height="70" fill="#cfd5df"/><circle cx="48" cy="26" r="15" fill="#8b93a3"/><path d="M18 70c4-18 16-26 30-26s26 8 30 26z" fill="#8b93a3"/></svg>';
 function require_norm(n) { return createRequire(import.meta.url)("../lib/LeagueMath.js").norm(n); }
 
+// season totals for the rostered players (deterministic), shaped like Sleeper's /stats/nba/regular/<season>
+function fakeStats() {
+  const out = {};
+  Object.values(live.rosters).forEach(r => (r.players || []).forEach((pid, i) => {
+    const k = Number(pid) % 17, gp = 10 + (k % 7);
+    out[pid] = { gp, min: gp * (20 + k), pts: gp * (8 + k), reb: gp * (3 + k % 6), ast: gp * (2 + k % 5), stl: gp, blk: Math.round(gp / 2), tpm: gp * (k % 4), to: gp * 2, fgm: gp * 6, fga: gp * 13, ftm: gp * 3, fta: gp * 4, tpa: gp * 5 };
+  }));
+  return out;
+}
 function respond(url, method) {
   const u = new URL(url);
   if (url.startsWith(SITE)) {
@@ -50,6 +59,7 @@ function respond(url, method) {
   }
   const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, POST, PATCH" };
   const json = v => ({ status: 200, contentType: "application/json", headers: CORS, body: JSON.stringify(v) });
+  if (u.host === "api.sleeper.app" && u.pathname.includes("/stats/nba/")) return json(fakeStats());
   if (u.host === "api.sleeper.app") {
     const p = u.pathname.replace("/v1/league/" + League.CONFIG.leagueId, "");
     if (p === "") return json(live.league);
@@ -74,7 +84,7 @@ const trade = enc({ t: ["ATL", "BOS", "MIA"], m: [["p", pl("ATL", 0), "ATL", "BO
   ["k", L.picks.ATL[0].label, "ATL", "MIA"], ["c", 3, "BOS", "ATL"]] });
 
 const SHOTS = [
-  ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["trade", "#" + trade], ["trade-empty", "#trade"],
+  ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["stats", "#stats"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["trade", "#" + trade], ["trade-empty", "#trade"],
   ["log", "#log"], ["rules", "#rules"], ["admin-login", "#admin"],
   ["admin-pending", "#admin", { admin: true }], ["admin-holds", "#admin", { admin: true, tab: "holds" }],
   ["admin-cash", "#admin", { admin: true, tab: "cash" }], ["admin-waive", "#admin", { admin: true, tab: "waive" }],

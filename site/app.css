@@ -957,3 +957,25 @@
   .plog .ent { grid-template-columns: 96px 1fr; }
   .plog .deal { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
   @media (max-width: 520px) { .plog .ent { grid-template-columns: 1fr; } }
+
+  /* stats page */
+  .leaders-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 4px; }
+  .leaders .list-row .av { width: 34px; height: 34px; }
+  .fpv { font-size: 16px; font-weight: 800; color: var(--accent-2); }
+  .val { display: inline-block; padding: 1px 8px; border-radius: 999px; font-weight: 800; color: var(--good); background: color-mix(in srgb, var(--good) 12%, transparent); }
+  table.stbl td.fpcell { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  table.stbl td.fpcell b { color: var(--accent-2); }
+  table.stbl tr:hover td.fpcell { background: color-mix(in srgb, var(--accent) 14%, var(--card)); }
+  .rnk { display: inline-block; width: 26px; color: var(--faint); font-size: 12px; font-weight: 700; vertical-align: middle; }
+  table.stbl td.name { max-width: 260px; }
+  /* extension eligible */
+  .flag.ext { color: var(--m-smax); background: color-mix(in srgb, var(--m-smax) 14%, transparent); }
+  .flag.ext.off { color: var(--muted); background: var(--chip); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  /* nine nav links: tighten before they collide with the buttons */
+  @media (max-width: 1400px) and (min-width: 761px) { .dl span { display: none; } .dl { padding: 7px 9px; } .nav a { padding: 0 9px; font-size: 13.5px; } .top-in { gap: 14px; } }
+  @media (max-width: 1100px) and (min-width: 761px) { .nav a { padding: 0 7px; font-size: 13px; } .brand { font-size: 18px; } }
+
+  @media (max-width: 1700px) and (min-width: 761px) { .dl span { display: none; } .dl { padding: 7px 9px; } .nav a { padding: 0 9px; font-size: 13.5px; } .top-in { gap: 14px; } }
+  td.name:has(.flag) { max-width: none; }
+  .flag.ext.off { text-decoration: none; }
