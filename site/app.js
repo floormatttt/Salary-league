@@ -994,23 +994,108 @@ function pageLog() {
 function pageRules() {
   if (!S.rules) {
     api("getRules").then(function (d) { S.rules = d; if (/^rules/.test(S.hash)) rerender(); }, function (e) { view().innerHTML = box("", '<div class="err">' + esc(e.message) + "</div>"); });
-    return '<div class="pagehead"><h1>Rules</h1></div>' + loading("Loading the Rules tab");
+    return '<div class="pagehead"><h1>Rules</h1></div>' + loading("Loading the rules");
   }
-  var sections = [], cur = [];
-  S.rules.rows.forEach(function (r) {
-    if (!r.length || r.every(function (v) { return !v; })) { if (cur.length) sections.push(cur); cur = []; }
-    else cur.push(r);
-  });
-  if (cur.length) sections.push(cur);
-  var html = sections.map(function (rows) {
-    var title = rows[0].filter(Boolean).length === 1 && rows.length > 1 ? rows.shift()[0] : "";
+  var L = S.L, cur0 = statSeasons()[0];
+  if (!S.stats[cur0]) loadStats(cur0).then(function () { if (/^rules/.test(S.hash)) rerender(); }, function () {});   // FPPG for the "eligible now" count
+  var sections = [["cap", "Salary cap"], ["contracts", "Contracts"], ["rookies", "Rookie scale"], ["roster", "Roster"], ["fa", "Free agency"],
+                  ["ext", "Extensions & restructures"], ["trades", "Trading"]];
+  var jump = '<div class="rjump">' + sections.map(function (x) { return '<a href="#rules" data-jump="r-' + x[0] + '">' + esc(x[1]) + "</a>"; }).join("") + "</div>";
+  var sec = function (id, title, inner, kicker) {
+    return '<section class="rsec" id="r-' + id + '"><div class="rsec-h">' + (kicker ? '<div class="eyebrow">' + esc(kicker) + "</div>" : "") + "<h2>" + esc(title) + "</h2></div>" + inner + "</section>";
+  };
+  var li = function (items) { return '<ul class="rlist">' + items.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; };
+  var big = function (v, label, cls) { return '<div class="rbig' + (cls ? " " + cls : "") + '"><b>' + v + "</b><span>" + esc(label) + "</span></div>"; };
+
+  // ---- salary cap: the four levels, with who's in each right now
+  var tiers = [
+    { key: "cap", name: "Under the cap", range: "$0 – $150M", rules: [["Trades", "No restrictions"], ["Free agency", "No restrictions"], ["Extensions", "Allowed"], ["Restructures", "Allowed"], ["Note", "Must be at $50M by the start of the season"]] },
+    { key: "first", name: "1st apron", range: "$150.1 – $200M", rules: [["Trades", "Can take back up to +$15M"], ["Free agency", "Can offer up to 75% of a max"], ["Extensions", "Allowed"], ["Restructures", "Allowed"]] },
+    { key: "second", name: "2nd apron", range: "$200.1 – $250M", rules: [["Trades", "Can take back up to +$5M"], ["Free agency", "Minimum deals only"], ["Extensions", "Not allowed"], ["Restructures", "Can't add money to this season"]] },
+    { key: "tax", name: "Luxury tax", range: "$250.1 – $300M", rules: [["Trades", "Can only lose cap"], ["Free agency", "Can't sign free agents"], ["Extensions", "Not allowed"], ["Restructures", "Not allowed"], ["Note", "Anything over $300M gets transferred"]] },
+  ];
+  var byTier = {};
+  L.teams.forEach(function (t) { var k = LM.tierOf(book(t.code).payroll[0]).key; (byTier[k === "over" ? "tax" : k] = byTier[k === "over" ? "tax" : k] || []).push(t); });
+  var scale = '<div class="rscale">' + tiers.map(function (t) { return '<div class="t-' + t.key + '"><span>' + esc(t.range.split(" – ")[1]) + "</span></div>"; }).join("") + "</div>";
+  var cap = scale + '<div class="rtiers">' + tiers.map(function (t) {
+    var teams = (byTier[t.key] || []).slice().sort(function (a, b) { return book(b.code).payroll[0] - book(a.code).payroll[0]; });
+    return '<div class="rtier t-' + t.key + '"><div class="rtier-h"><span class="tier t-' + t.key + '">' + esc(t.name) + '</span><b>' + esc(t.range) + "</b></div>" +
+      '<dl class="rdl">' + t.rules.map(function (r) { return "<dt>" + esc(r[0]) + "</dt><dd>" + esc(r[1]) + "</dd>"; }).join("") + "</dl>" +
+      '<div class="rnow"><span>' + teams.length + " team" + (teams.length === 1 ? "" : "s") + ' here now</span><div class="rchips">' + teams.map(function (x) { return tcode(x.code); }).join("") + "</div></div></div>";
+  }).join("") + "</div>" +
+    '<div class="rcallouts">' + big("+2%", "Cap bonus for playoff teams", "accent") + big("Payroll", "Judged before the trade for apron limits") + big("Cash", "Counts toward the cap") + "</div>";
+
+  // ---- contracts
+  var kinds = [
+    ['<span class="mny m-max">Max<em>MAX</em></span>', "Max", "Players over 22.5 FPPG"],
+    ['<span class="mny m-smax">Supermax<em>SMAX</em></span>', "Supermax", "Players over 30 FPPG"],
+    ['<span class="mny m-po">Option<em>PO</em></span>', "Player option", "The player decides whether to stay"],
+    ['<span class="mny m-to">Option<em>TO</em></span>', "Team option", "The team decides whether to keep him"],
+    ['<span class="fa m-rfa">RFA</span>', "Restricted free agent", "His team can match any offer"],
+    ['<span class="fa m-ufa">UFA</span>', "Unrestricted free agent", "Free to sign anywhere"],
+    ['<span class="mny m-hold">Hold</span>', "Cap hold", "Waived or dropped players still count"],
+    ['<span class="chip">Two-way</span>', "Two-way", "Unsigned rookies or 2nd-year players past UDFA"],
+  ];
+  var maxMoney = [["0 – 14.9 FPPG", "1.5×", 25], ["15 – 22.4 FPPG", "1.75×", 50], ["22.5 – 30 FPPG", "2×", 75], ["30.1+ FPPG (supermax)", "$60M", 100]];
+  var contracts = '<div class="rkinds">' + kinds.map(function (k) { return '<div class="rkind"><div class="rkind-tag">' + k[0] + "</div><b>" + esc(k[1]) + "</b><span>" + esc(k[2]) + "</span></div>"; }).join("") + "</div>" +
+    '<div class="rgrid2"><div class="box"><div class="panel-head"><h3>Max money by FPPG</h3></div>' + maxMoney.map(function (m) {
+      return '<div class="rbar"><span>' + esc(m[0]) + '</span><div class="rbar-t"><i style="width:' + m[2] + '%"></i></div><b>' + esc(m[1]) + "</b></div>"; }).join("") + "</div>" +
+    '<div class="rcallouts col">' + big("2 + 1", "Max deals per team: 2 maxes and 1 supermax", "accent") + big("5 yrs", "Longest contract") + big("$2M", "Minimum: 1 year") + "</div></div>";
+
+  // ---- rookie scale
+  var rs = [["Picks 1–3", 11, 4, "RFA"], ["Picks 4–8", 8, 4, "RFA"], ["Picks 9–14", 6, 4, "RFA"], ["Picks 15–30", 4, 4, "RFA"], ["Picks 31–60", 2, 2, "RFA"], ["Undrafted", 1, 2, "UFA"]];
+  var rookies = '<div class="tbl"><table class="rtbl"><tr><th>Pick</th><th>Year 1</th><th>Year 2</th><th>Year 3</th><th>Year 4</th><th>Then</th></tr>' + rs.map(function (r) {
+    var cells = ""; for (var i = 0; i < 4; i++) cells += "<td>" + (i < r[2] ? '<span class="mny m-g">$' + r[1].toFixed(1) + "</span>" : '<span class="dim">·</span>') + "</td>";
+    return "<tr><td><b>" + esc(r[0]) + "</b></td>" + cells + '<td><span class="fa m-' + r[3].toLowerCase() + '">' + r[3] + "</span></td></tr>";
+  }).join("") + "</table></div>";
+
+  // ---- roster
+  var slot = function (n, cls) { return '<span class="rslot ' + cls + '">' + esc(n) + "</span>"; };
+  var roster = '<div class="rroster">' +
+    '<div class="rgroup"><h4>Starters</h4><div>' + ["PG", "SG", "SF", "PF", "C", "UTIL", "UTIL"].map(function (x) { return slot(x, "start"); }).join("") + "</div></div>" +
+    '<div class="rgroup"><h4>Bench</h4><div>' + [1, 2, 3, 4, 5, 6, 7, 8].map(function () { return slot("BN", "bench"); }).join("") + "</div></div>" +
+    '<div class="rgroup"><h4>Injured reserve</h4><div>' + slot("IR", "ir") + slot("IR", "ir") + "</div></div>" +
+    '<div class="rgroup"><h4>Taxi</h4><div>' + [1, 2, 3, 4, 5].map(function () { return slot("TX", "taxi"); }).join("") + "</div></div></div>" +
+    li(["Starters + bench make up the active roster.", "Roster and start at least <b>7 players</b> by the start of the season.",
+        "Taxi is only for rookies and two-way players. They can only be activated if you're short of the 7-player minimum.", "Lock in at least your average; you can't go below it."]);
+
+  // ---- free agency
+  var fa = '<div class="rgrid2"><div class="box rfa"><div class="panel-head"><h3>Offseason</h3></div>' +
+    '<ol class="rsteps"><li><b>Silent bids</b><span>Every bid is blind.</span></li><li><b>72 hours</b><span>Bidding closes 72 hours after the first bid.</span></li><li><b>Top 3 duke it out</b><span>The three best bids go head to head.</span></li></ol></div>' +
+    '<div class="box rfa"><div class="panel-head"><h3>In season</h3></div>' +
+    '<ol class="rsteps"><li><b>First come, first served</b><span>No bidding.</span></li><li><b>1 year, $2M</b><span>Every in-season signing, then back to free agency after the season.</span></li><li><b>48 hours to match</b><span>Owners get 48 hours to match offers to their restricted free agents.</span></li></ol></div></div>' +
+    '<div class="rcallouts">' + big("< $10M", "RFA qualifying offer: the minimum (1 yr, $2M)") + big("$10–15M", "RFA qualifying offer: 2/1") + big("$15M+", "RFA qualifying offer: 5/1") +
+    big("Wheel", "Undrafted players: send interest, then a wheel spin", "accent") + "</div>";
+
+  // ---- extensions & restructures (with a live count)
+  var eligible = playerRows().filter(function (r) { var e = extEligible(r.c, r.team); return e && !e.blocked; }).length;
+  var ext = '<div class="rgrid2"><div class="box"><div class="panel-head"><h3>Extensions</h3><a href="#contracts" data-go="contracts" data-ext="1">' + eligible + " eligible now →</a></div>" +
+    '<div class="rtimeline"><div><b>Offseason</b><span>before his free-agency year: eligibility opens</span></div><div><b>Playoffs</b><span>eligibility ends when they start</span></div></div>' +
+    li(["Only <b>max-eligible players</b> (22.5+ FPPG) and <b>rookies</b> can be extended; everyone else hits free agency.",
+        "Until a month into the season, last season's FPPG decides max eligibility.", "Commissioners vote: it takes <b>4–3</b> to pass.",
+        "An extension counts as a separate contract.", "Teams at the 2nd apron or in the tax can't extend."]) + "</div>" +
+    '<div class="box"><div class="panel-head"><h3>Restructures</h3></div>' +
+    '<div class="rcallouts col">' + big("$10M", "Most you can move per player, into any one year", "accent") + big("2", "Restructures per team per year") + "</div>" +
+    li(["Money moves; the years don't. Total money and years stay the same.", "Teams at the 2nd apron can't add money to this season.", "Player options: the commissioners set the odds he accepts, then a random number decides."]) + "</div></div>";
+
+  // ---- trading
+  var trades = '<div class="rcallouts">' + big("3–2", "Commissioner vote to pass a trade", "accent") + big("$10M", "Cash each team can use per season") + big("Auto", "Veto for anything that breaks a rule") + "</div>" +
+    li(["Cash counts toward the cap.", "<b>You can't pay off parts of contracts.</b>", "Apron limits are judged on payroll before the trade."]) +
+    '<div class="actions"><a class="btn pri" href="#trade" data-go="trade">Open the trade machine</a></div>';
+
+  // ---- the original sheet, for reference
+  var raw = [], cur = [];
+  S.rules.rows.forEach(function (r) { if (!r.length || r.every(function (v) { return !v; })) { if (cur.length) raw.push(cur); cur = []; } else cur.push(r); });
+  if (cur.length) raw.push(cur);
+  var sheet = '<details class="box rsheet"><summary><b>Original rules sheet</b></summary>' + raw.map(function (rows) {
     var w = Math.max.apply(null, rows.map(function (r) { return r.length; }));
-    return box(title, '<div class="tbl"><table class="rules">' + rows.map(function (r) {
-      var cells = []; for (var i = 0; i < w; i++) cells.push("<td>" + esc(r[i] || "") + "</td>");
-      return "<tr>" + cells.join("") + "</tr>";
-    }).join("") + "</table></div>");
-  }).join("");
-  return '<div class="pagehead"><div><h1>Rules</h1><div class="sub">From the Rules tab</div></div></div>' + html;
+    return '<div class="tbl" style="margin-top:10px"><table class="rules">' + rows.map(function (r) {
+      var cells = []; for (var i = 0; i < w; i++) cells.push("<td>" + esc(r[i] || "") + "</td>"); return "<tr>" + cells.join("") + "</tr>"; }).join("") + "</table></div>";
+  }).join("") + "</details>";
+
+  return '<div class="pagehead"><div><div class="eyebrow">League rules</div><h1>Rules</h1></div></div>' + jump +
+    sec("cap", "Salary cap", cap, "Four levels") + sec("contracts", "Contracts", contracts) + sec("rookies", "Rookie scale", rookies) +
+    sec("roster", "Roster", roster) + sec("fa", "Free agency", fa) + sec("ext", "Extensions & restructures", ext) + sec("trades", "Trading", trades) + sheet;
 }
 
 /* ============================ commissioner ============================ */
@@ -1344,6 +1429,10 @@ document.addEventListener("click", function (ev) {
   var t = ev.target;
   var p = t.closest && t.closest(".plink[data-player]");
   if (p) { ev.preventDefault(); openPlayer(p.getAttribute("data-player")); return; }
+  var jm = t.closest && t.closest("[data-jump]");
+  if (jm) { ev.preventDefault(); var tgt = $(jm.getAttribute("data-jump")); if (tgt) window.scrollTo({ top: tgt.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" }); return; }
+  var ge = t.closest && t.closest("[data-ext]");
+  if (ge) S.pl.f = "ext";
   var g = t.closest && t.closest("[data-go]");
   if (g) { ev.preventDefault(); if ($("modal").classList.contains("open")) closePlayer(); Nav.go(g.getAttribute("data-go")); return; }
   if (t.id === "modal" || t.id === "modalClose") { closePlayer(); return; }
