@@ -1358,7 +1358,6 @@
 table.plantbl td.pchg { background: var(--accent-soft); }
 table.plantbl tr.pout td { opacity: .55; }
 table.plantbl tr.pout td .mny, table.plantbl tr.pout td .plink { text-decoration: line-through; }
-table.plantbl tr.pout td:last-child { opacity: 1; }
 table.plantbl tr.pedit td { background: var(--card-2); padding: 10px 12px; }
 .psave { color: var(--good); font-weight: 700; } .padd { color: var(--bad); font-weight: 700; }
 .pdelta { padding: 3px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
@@ -1374,3 +1373,7 @@ table.plantbl tr.pedit td { background: var(--card-2); padding: 10px 12px; }
 .phit { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .phit:hover { border-color: var(--accent); }
 .phit .nm { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+table.plantbl td.name .plx { margin-left: 8px; }
+table.plantbl tr.pout td.name .plx { text-decoration: none; }
+table.plantbl tr.pout td.name { opacity: 1; }
+table.plantbl tr.pout td.name .who { opacity: .55; }

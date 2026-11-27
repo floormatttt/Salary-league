@@ -134,7 +134,7 @@ function planRow(r, P, kind) {
   if (kind === "keep" && c) act = '<button class="plx" data-act="planX" data-id="' + c.id + '" title="Take him and his salary off the books">trade away</button>';
   if (kind === "add") act = r.made != null ? '<button class="plx" data-act="planUnSign" data-k="' + r.made + '">remove</button>' : '<button class="plx" data-act="planUnAdd" data-id="' + c.id + '">remove</button>';
   var tds = r.line.cells.map(function (x) { return '<td class="' + (x.chg ? "pchg" : "") + '">' + x.html + "</td>"; }).join("");
-  var html = '<tr><td class="name">' + pwho(r.name) + (r.noc ? '<span class="flag bad">No contract</span>' : "") + '</td><td class="l muted">' + esc(c ? c.nba : "") + "</td>" + tds + '<td class="l">' + act + "</td></tr>";
+  var html = '<tr><td class="name">' + pwho(r.name) + (r.noc ? '<span class="flag bad">No contract</span>' : "") + act + '</td><td class="l muted">' + esc(c ? c.nba : "") + "</td>" + tds + "</tr>";
   if (c && S.planEdit === c.id) html += planEditor(c, P);
   return html;
 }
@@ -142,7 +142,7 @@ function planEditor(c, P) {
   var fa = planFaIdx(c, P), n = planN(), left = Math.min(5, n - fa), last = 0;
   for (var i = fa - 1; i >= 0; i--) if (typeof c.sal[i] === "number") { last = c.sal[i]; break; }
   var yrs = ""; for (var y = 1; y <= left; y++) yrs += '<option value="' + y + '"' + (y === Math.min(3, left) ? " selected" : "") + ">" + y + (y === 1 ? " year" : " years") + "</option>";
-  return '<tr class="pedit"><td colspan="' + (n + 3) + '"><div class="row start" style="gap:8px;flex-wrap:wrap">' +
+  return '<tr class="pedit"><td colspan="' + (n + 2) + '"><div class="row start" style="gap:8px;flex-wrap:wrap">' +
     "<b>Re-sign " + esc(plain(c.n)) + " from " + esc(seasonOf(fa)) + "</b>" +
     '<label class="pin">$<input type="number" id="planReSal" min="0" step="0.5" value="' + (last || 2) + '">M a year</label>' +
     '<select id="planReYrs" aria-label="Years">' + yrs + "</select>" +
@@ -190,7 +190,7 @@ function pagePlan(arg) {
     (S.planShare ? '<label class="f" style="margin-top:10px">Share link<input type="text" readonly id="planShareUrl" value="' + esc(S.planShare) + '"></label>' : "") + "</div>";
 
   var seasonsTh = L.seasons.map(function (s) { return "<th>" + esc(s) + "</th>"; }).join("");
-  var cols = n + 3, grp = function (label, len) { return '<tr class="grp"><td colspan="' + cols + '"><span class="gl">' + label + " · " + len + "</span></td></tr>"; };
+  var cols = n + 2, grp = function (label, len) { return '<tr class="grp"><td colspan="' + cols + '"><span class="gl">' + label + " · " + len + "</span></td></tr>"; };
   var body = "";
   ["starters", "bench", "ir", "taxi"].forEach(function (slot) {
     var ps = B.rows.keep.filter(function (r) { return r.slot === slot; });
@@ -198,13 +198,13 @@ function pagePlan(arg) {
   });
   if (B.rows.add.length) body += grp("Added", B.rows.add.length) + B.rows.add.map(function (r) { return planRow(r, P, "add"); }).join("");
   if (B.rows.holds.length) body += grp("Cap holds", B.rows.holds.length) + B.rows.holds.map(function (h) {
-    return '<tr><td class="name">' + pwho(h.name) + '</td><td class="l muted">' + esc(h.c ? h.c.nba : "") + "</td>" + L.seasons.map(function (_, i) { return "<td>" + salCell(h.c, i) + "</td>"; }).join("") + "<td></td></tr>";
+    return '<tr><td class="name">' + pwho(h.name) + '</td><td class="l muted">' + esc(h.c ? h.c.nba : "") + "</td>" + L.seasons.map(function (_, i) { return "<td>" + salCell(h.c, i) + "</td>"; }).join("") + "</tr>";
   }).join("");
   if (B.rows.out.length) body += grp("Traded away", B.rows.out.length) + B.rows.out.map(function (r) {
-    return '<tr class="pout"><td class="name">' + pwho(r.name) + '</td><td class="l muted">' + esc(r.c.nba) + "</td>" + L.seasons.map(function (_, i) { return "<td>" + salCell(r.c, i) + "</td>"; }).join("") +
-      '<td class="l"><button class="plx" data-act="planX" data-id="' + r.c.id + '">bring back</button></td></tr>';
+    return '<tr class="pout"><td class="name">' + pwho(r.name) + '<button class="plx go" data-act="planX" data-id="' + r.c.id + '">bring back</button></td><td class="l muted">' + esc(r.c.nba) + "</td>" +
+      L.seasons.map(function (_, i) { return "<td>" + salCell(r.c, i) + "</td>"; }).join("") + "</tr>";
   }).join("");
-  var row = function (label, f, cl) { return "<tr" + (cl ? ' class="' + cl + '"' : "") + "><td>" + label + "</td><td></td>" + B.pay.map(f).join("") + "<td></td></tr>"; };
+  var row = function (label, f, cl) { return "<tr" + (cl ? ' class="' + cl + '"' : "") + "><td>" + label + "</td><td></td>" + B.pay.map(f).join("") + "</tr>"; };
   body += '<tr class="grp"><td colspan="' + cols + '"><span class="gl">Totals</span></td></tr>' +
     (B.b.cash ? row("Cash considerations", function (_, i) { return '<td class="' + (i === 0 ? cls(B.b.cash) : "") + '">' + (i === 0 ? signed(B.b.cash) : "") + "</td>"; }) : "") +
     row("Planned payroll", function (v) { return '<td class="tot t-' + LM.tierOf(v).key + '">' + money(v) + "</td>"; }, "total") +
@@ -218,7 +218,7 @@ function pagePlan(arg) {
       var ok = LM.maxComboOk(B.maxes[i], B.smaxes[i], lim.maxCombos);
       return '<td class="' + (ok ? "" : "neg") + '" title="Allowed: ' + esc(LM.maxCombosText(lim.maxCombos)) + '">' + B.maxes[i] + " / " + B.smaxes[i] + (ok ? "" : " ⚠") + "</td>";
     });
-  var table = '<div class="tbl"><table class="teamtbl plantbl"><tr><th>Player</th><th class=l>NBA</th>' + seasonsTh + '<th class="l"></th></tr>' + body + "</table></div>" +
+  var table = '<div class="tbl"><table class="teamtbl plantbl"><tr><th>Player</th><th class=l>NBA</th>' + seasonsTh + '</tr>' + body + "</table></div>" +
     '<p class="muted small" style="margin:8px 2px 0">Max deals: max / supermax under contract. Re-signings and made-up signings count as regular deals.</p>';
 
   var yrs = "", starts = "";
