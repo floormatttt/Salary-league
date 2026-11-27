@@ -1279,7 +1279,6 @@
     td.name .who { display: flex; max-width: 128px; gap: 7px; }
     td.name .who .plink { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
     td.name .flag { display: block; width: fit-content; margin: 2px 0 0 33px; font-size: 9.5px; padding: 0 5px; }
-    td.name .rnk { display: none; }
     .av { width: 24px; height: 24px; }
     .tbl table:not(.rules) td:first-child, .tbl table:not(.rules) th:first-child { box-shadow: 4px 0 8px -6px rgba(0, 0, 0, .25); }
     /* standings / future cap team column */
@@ -1319,8 +1318,6 @@
     .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   }
   @media (max-width: 640px) {
-    /* NBA team column hidden on phones (Contracts + team pages) so salaries come into view */
-    table.pltbl tr > :nth-child(2), table.teamtbl tr > :nth-child(2) { display: none; }
     td.name .flag { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     .pipcount { white-space: nowrap; font-size: 13px !important; }
     .pipcount small { font-size: 10px; }
@@ -1329,7 +1326,6 @@
     /* Teams: two compact cards per row */
     .tgrid { grid-template-columns: 1fr 1fr !important; gap: 10px; }
     .tcard-top { gap: 8px; padding: 10px; flex-wrap: wrap; position: relative; }
-    .tcard-top .badge-team { display: none; }
     .tcard-top .grow { min-width: 0; flex: 1 1 100%; }
     .tcard-top b { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 30px; }
     .tcard-top span:not(.badge-team) { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1338,8 +1334,6 @@
     .tcard-body .row { flex-wrap: wrap; gap: 4px; }
     .tcard-body .row b { font-size: 15px; }
     .tcard-body .tier { font-size: 10.5px; padding: 1px 6px; }
-    /* Contracts: FPPG + Yrs hidden on phones, salaries first */
-    table.pltbl tr > :nth-child(4), table.pltbl tr > :nth-child(5) { display: none; }
   }
   /* sticky first column always paints above scrolled cells (salary bands keep their layers inside their own cell) */
   th:first-child, td:first-child { z-index: 3; }
@@ -1436,3 +1430,25 @@ table.plantbl .pname .ptrade { margin-left: 0; }
 .sheet.psheet .psign-foot { flex-wrap: wrap; }
 .sheet.psheet .psign-foot > span { flex: 1 1 100%; }
 .sheet.psheet .psign-foot > .row { margin-left: auto; }
+
+/* ================= phone: same pieces as desktop ================= */
+@media (max-width: 760px) {
+  /* header: icon-only download button like desktop; the tab row fades at the edge so it reads as scrollable */
+  .dl span { display: none; }
+  .dl { padding: 7px 9px; border-radius: 999px; }
+  .nav { padding-right: 28px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+}
+@media (max-width: 640px) {
+  /* rank numbers stay, small */
+  td.name .rnk { width: 18px; font-size: 10.5px; vertical-align: middle; }
+  td.name .rnk + .who { display: inline-flex; vertical-align: middle; max-width: calc(100% - 20px); }
+  td.name:has(> .rnk) { white-space: nowrap; }
+  /* Teams: the code badge stays; badge + record on top, name and owner under them */
+  .tcard-top .badge-team { width: 30px; height: 30px; font-size: 9.5px; border-radius: 8px; flex: none; }
+  .tcard-top .grow { padding-right: 0; }
+  .tcard-top .rec { top: 15px !important; }
+  .tcard-top b { padding-right: 0 !important; }
+  /* two dropdowns in a row share it, as on desktop */
+  .row.start > .dd { flex: 1 1 0; min-width: 0; width: auto; }
+  .row.start > .dd .dd-btn { width: 100%; }
+}

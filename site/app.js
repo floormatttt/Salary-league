@@ -342,6 +342,12 @@ function route(h, keepScroll) {
   Array.prototype.forEach.call(document.querySelectorAll("#nav a"), function (a) {
     a.classList.toggle("on", a.getAttribute("data-page") === page);
   });
+  // phones: the tab row scrolls sideways, so bring the current tab into view
+  var nav = $("nav"), on = nav && nav.querySelector("a.on");
+  if (on && nav.scrollWidth > nav.clientWidth) {
+    var nr = nav.getBoundingClientRect(), ar = on.getBoundingClientRect();
+    nav.scrollLeft += ar.left - nr.left - (nav.clientWidth - ar.width) / 2;
+  }
   var html = PAGES[page](arg);
   if (html != null) view().innerHTML = html + footer();
   if (!keepScroll) window.scrollTo(0, 0);

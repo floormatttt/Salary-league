@@ -84,7 +84,7 @@ const trade = enc({ t: ["ATL", "BOS", "MIA"], m: [["p", pl("ATL", 0), "ATL", "BO
   ["k", L.picks.ATL[0].label, "ATL", "MIA"], ["c", 3, "BOS", "ATL"]] });
 
 const SHOTS = [
-  ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["stats", "#stats"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["trade", "#" + trade], ["trade-empty", "#trade"],
+  ["home", ""], ["contracts", "#contracts"], ["standings", "#standings"], ["stats", "#stats"], ["teams", "#team"], ["team-ATL", "#team/ATL"], ["team-MEM", "#team/MEM"], ["plan-ATL", "#plan/ATL"], ["trade", "#" + trade], ["trade-empty", "#trade"],
   ["log", "#log"], ["rules", "#rules"], ["admin-login", "#admin"],
   ["admin-pending", "#admin", { admin: true }], ["admin-holds", "#admin", { admin: true, tab: "holds" }],
   ["admin-cash", "#admin", { admin: true, tab: "cash" }], ["admin-waive", "#admin", { admin: true, tab: "waive" }],
