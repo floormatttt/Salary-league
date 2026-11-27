@@ -1065,3 +1065,17 @@
   td.capcell span i { width: 7px; height: 7px; border-radius: 50%; background: var(--tc); }
   td.capcell.hl2 { background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
   .pagehead .seg { align-self: flex-end; }
+
+  /* future cap space, salary-styled cells */
+  table.ftbl td.capcell { padding: 8px 10px; text-align: left; }
+  table.ftbl th { text-align: left; }
+  .fc { min-width: 118px; padding: 6px 8px 8px; border-radius: 10px; background: color-mix(in srgb, var(--tc) 6%, var(--card)); border-left: 3px solid var(--tc); }
+  .fc-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .fc-h b { display: inline; font-size: 14.5px; font-weight: 800; color: var(--text); }
+  .fc-sp { font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .fc-sp.pos { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+  .fc-sp.neg { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+  .fc .meter { min-width: 0; }
+  .fc.open { display: flex; align-items: baseline; justify-content: space-between; border-left-color: var(--line); background: repeating-linear-gradient(135deg, var(--card-2) 0 6px, var(--card) 6px 12px); color: var(--faint); font-size: 12.5px; font-weight: 700; }
+  .fc.open em { font-style: normal; color: var(--good); font-weight: 800; }
+  td.capcell.hl2 { background: color-mix(in srgb, var(--accent) 7%, var(--card)); }

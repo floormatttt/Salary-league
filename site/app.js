@@ -439,9 +439,10 @@ function futureCap(order) {
     var t = r.t;
     return '<tr><td><div class="tm"><span class="rk' + (r.i < 3 ? " top" : "") + '">' + (r.i + 1) + "</span>" + swatch(t.code) + "<div>" + teamLink(t.code) +
       '<div class="muted small">' + record(t) + "</div></div></div></td>" + r.pay.map(function (p, j) {
-        var space = LM.r1(CAP_LINE - p), tier = LM.tierOf(p);
-        return '<td class="capcell' + (j === k ? " hl2" : "") + '"><b class="' + (space >= 0 ? "pos" : "neg") + '">' + (space >= 0 ? "+" : "−") + money(Math.abs(space)) + "</b>" +
-          '<span class="t-' + tier.key + '" title="' + esc(tier.label) + '"><i></i>' + money(p) + "</span></td>";
+        var space = LM.r1(CAP_LINE - p), tier = LM.tierOf(p), on = j === k ? " hl2" : "";
+        if (!(p > 0)) return '<td class="capcell' + on + '"><div class="fc open"><span>Open</span><em>$' + CAP_LINE + "M</em></div></td>";
+        return '<td class="capcell' + on + '"><div class="fc t-' + tier.key + '" title="' + esc(tier.label) + " · " + money(p) + 'M committed"><div class="fc-h"><b>' + money(p) + "</b>" +
+          '<span class="fc-sp ' + (space >= 0 ? "pos" : "neg") + '">' + (space >= 0 ? "+" : "−") + money(Math.abs(space)) + "</span></div>" + meter(p) + "</div></td>";
       }).join("") + "</tr>";
   }).join("");
   return '<div class="tbl"><table class="ftbl"><tr><th>Team</th>' + L.seasons.map(function (x, j) {
