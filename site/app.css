@@ -1393,3 +1393,46 @@ table.plantbl .pname .ptrade { margin-left: 0; }
   table.plantbl .pname { display: block; }
   table.plantbl .pname .ptrade { margin: 4px 0 0 33px; }
 }
+
+/* salary planner: made-up signing form */
+.psign .pf { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.psign .pf > span { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.psign .pf input[type=text], .psign .pf select { width: 100%; }
+.pmoney { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--card); overflow: hidden; max-width: 220px; }
+.pmoney:focus-within { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.pmoney i { font-style: normal; font-weight: 700; color: var(--muted); padding: 0 10px; }
+.pmoney input { flex: 1; min-width: 0; border: 0; border-radius: 0; padding-left: 0; padding-right: 0; font-size: 16px; font-weight: 700; background: transparent; }
+.pmoney input:focus { outline: none; }
+.pquick { display: flex; flex-wrap: wrap; gap: 6px; }
+.pq { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card-2); color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.pq:hover { border-color: var(--accent); color: var(--accent); }
+.psign-row { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; }
+.pyrs { display: inline-flex; gap: 2px; padding: 3px; background: var(--chip); border-radius: 11px; }
+.pyrs label { cursor: pointer; }
+.pyrs input { position: absolute; opacity: 0; pointer-events: none; }
+.pyrs span { display: block; min-width: 34px; padding: 6px 0; text-align: center; border-radius: 8px; font-weight: 700; color: var(--muted); }
+.pyrs input:checked + span { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(15,23,41,.12); }
+.pyrs input:focus-visible + span { outline: 2px solid var(--accent); }
+.psign-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.psign-foot b { color: var(--text); }
+@media (max-width: 640px) { .psign-row { grid-template-columns: 1fr; gap: 0; } }
+.pempty { color: var(--muted); font-size: 13px; }
+.pempty b { color: var(--text); font-weight: 600; }
+/* salary planner: add bar + signing pop-up */
+.padd-bar { display: flex; gap: 10px; align-items: center; }
+.padd-bar .search { flex: 1; min-width: 0; }
+.psign-open { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+.sheet.psheet { inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 56px); }
+.sheet.psheet .sheet-body { padding: 18px 18px 18px; background: var(--card); }
+.psign .pmoney { max-width: none; }
+@media (max-width: 640px) {
+  .padd-bar { flex-direction: column; align-items: stretch; }
+  .sheet.psheet { inset: auto 0 0 0; transform: none; width: 100%; max-height: 92vh; border-radius: 18px 18px 0 0; }
+}
+.sheet.psheet .sheet-bar { position: static; justify-content: space-between; padding: 12px 12px 12px 18px; background: var(--card); border-bottom: 1px solid var(--line); pointer-events: auto; }
+.sheet.psheet .sheet-bar b { display: block; font-size: 16px; }
+.sheet.psheet .sheet-bar .x { background: var(--chip); color: var(--muted); backdrop-filter: none; }
+.sheet.psheet .sheet-bar .x:hover { background: var(--line); color: var(--text); }
+.sheet.psheet .psign-foot { flex-wrap: wrap; }
+.sheet.psheet .psign-foot > span { flex: 1 1 100%; }
+.sheet.psheet .psign-foot > .row { margin-left: auto; }

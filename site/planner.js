@@ -186,7 +186,7 @@ function pagePlan(arg) {
   var movesBox = '<div class="box"><div class="panel-head"><h3>Moves</h3>' +
     (moves.length ? '<div class="row start" style="gap:8px"><button class="btn" data-act="planShare">Copy share link</button><button class="btn" data-act="planClear">Start over</button></div>' : "") + "</div>" +
     (moves.length ? '<ul class="pmoves">' + moves.map(function (m) { return "<li><span>" + m[2] + '</span><button class="plx" data-act="' + m[0] + '" ' + m[1] + ">undo</button></li>"; }).join("") + "</ul>"
-      : '<p class="muted small" style="margin:0">Use the buttons in the table: <b>decline</b> on a team or player option, <b>re-sign</b> on a player whose deal runs out, <b>trade away</b> to take a salary off. Add players below.</p>') +
+      : '<div class="pempty">No moves yet. <b>Decline</b> an option, <b>re-sign</b> a player, <b>trade away</b> a salary, or add someone below.</div>') +
     (S.planShare ? '<label class="f" style="margin-top:10px">Share link<input type="text" readonly id="planShareUrl" value="' + esc(S.planShare) + '"></label>' : "") + "</div>";
 
   var seasonsTh = L.seasons.map(function (s) { return "<th>" + esc(s) + "</th>"; }).join("");
@@ -221,19 +221,48 @@ function pagePlan(arg) {
   var table = '<div class="tbl"><table class="teamtbl plantbl"><tr><th>Player</th><th class=l>NBA</th>' + seasonsTh + '</tr>' + body + "</table></div>" +
     '<p class="muted small" style="margin:8px 2px 0">Max deals: max / supermax under contract. Re-signings and made-up signings count as regular deals.</p>';
 
-  var yrs = "", starts = "";
-  for (var y = 1; y <= 5; y++) yrs += '<option value="' + y + '"' + (y === 1 ? " selected" : "") + ">" + y + (y === 1 ? " year" : " years") + "</option>";
-  L.seasons.forEach(function (s, i) { starts += '<option value="' + i + '"' + (i === k ? " selected" : "") + ">from " + esc(s) + "</option>"; });
-  var addBox = '<div class="pgrid"><div class="box"><h3>Add a player</h3><p class="muted small" style="margin:0 0 8px">Anyone with a contract, from any team or free agency. He comes with his current deal.</p>' +
-    '<div class="search"><input type="search" id="planq" placeholder="Search players" autocomplete="off" aria-label="Search players"></div><div id="planHits" class="phits"></div></div>' +
-    '<div class="box"><h3>Made-up signing</h3><p class="muted small" style="margin:0 0 8px">A free agent or a draft pick, at any salary. The minimum is $2M for 1 year.</p>' +
-    '<div class="row start" style="gap:8px;flex-wrap:wrap"><input type="text" id="planSignName" placeholder="Name" style="flex:1 1 140px">' +
-    '<label class="pin">$<input type="number" id="planSignSal" min="0" step="0.5" value="2">M</label>' +
-    '<select id="planSignYrs" aria-label="Years">' + yrs + '</select><select id="planSignFrom" aria-label="Starting season">' + starts + "</select>" +
-    '<button class="btn pri" data-act="planSign">Add</button></div></div></div>';
+  var addBox = '<div class="box"><h3>Add a player</h3>' +
+    '<div class="padd-bar"><div class="search"><input type="search" id="planq" placeholder="Search anyone with a contract" autocomplete="off" aria-label="Search players"></div>' +
+    '<button class="btn psign-open" data-act="planSignOpen"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Made-up signing</button></div>' +
+    '<div id="planHits" class="phits"></div></div>';
 
   return head + hero + movesBox + addBox + '<div style="height:10px"></div>' + moneyLegend() + '<div style="height:10px"></div>' + table;
 }
+
+// Made-up signing pop-up (its own layer, so the player card's modal is untouched)
+function planSignForm() {
+  var k = planN() > 1 ? 1 : 0, yrs = "", starts = "";
+  for (var y = 1; y <= 5; y++) yrs += '<label><input type="radio" name="planSignYrs" value="' + y + '"' + (y === 1 ? " checked" : "") + "><span>" + y + "</span></label>";
+  S.L.seasons.forEach(function (s, i) { starts += '<option value="' + i + '"' + (i === k ? " selected" : "") + ">" + esc(s) + "</option>"; });
+  var quick = [[2, "Min $2M"], [5, "$5M"], [10, "$10M"], [20, "$20M"], [35, "$35M"]].map(function (q) {
+    return '<button type="button" class="pq" data-act="planQuick" data-v="' + q[0] + '">' + q[1] + "</button>"; }).join("");
+  return '<div class="pempty" style="margin-bottom:14px">A free agent or a draft pick, at any salary. The minimum is $2M for 1 year.</div>' +
+    '<label class="pf"><span>Player</span><input type="text" id="planSignName" placeholder="e.g. 2027 1st-round pick" maxlength="40" autocomplete="off"></label>' +
+    '<div class="pf"><span>Salary per year</span><div class="pmoney"><i>$</i><input type="number" id="planSignSal" min="0" step="0.5" value="2" aria-label="Salary per year, in millions"><i>M</i></div>' +
+    '<div class="pquick">' + quick + "</div></div>" +
+    '<div class="psign-row"><div class="pf"><span>Years</span><div class="pyrs" role="radiogroup" aria-label="Years">' + yrs + "</div></div>" +
+    '<label class="pf"><span>Starting</span><select id="planSignFrom">' + starts + "</select></label></div>" +
+    '<div class="psign-foot"><span id="planSignSum" class="muted small">' + planSignSummary(2, 1, k) + '</span>' +
+    '<div class="row start" style="gap:8px"><button class="btn" data-act="planSignClose">Cancel</button><button class="btn pri" data-act="planSign">Add signing</button></div></div>';
+}
+function planSignOpen() {
+  var m = document.getElementById("planModal");
+  if (!m) { m = document.createElement("div"); m.id = "planModal"; m.className = "modal"; m.setAttribute("aria-hidden", "true"); document.body.appendChild(m); }
+  m.innerHTML = '<div class="sheet psheet" role="dialog" aria-modal="true" aria-labelledby="planModalTitle">' +
+    '<div class="sheet-bar"><b id="planModalTitle">Made-up signing</b><button class="x" data-act="planSignClose" aria-label="Close">×</button></div>' +
+    '<div class="sheet-body psign">' + planSignForm() + "</div></div>";
+  m.classList.add("open"); m.setAttribute("aria-hidden", "false"); document.body.classList.add("modal-open");
+  document.getElementById("planSignName").focus();
+}
+function planSignClose() {
+  var m = document.getElementById("planModal");
+  if (!m || !m.classList.contains("open")) return;
+  m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); m.innerHTML = "";
+  if (!document.getElementById("modal").classList.contains("open")) document.body.classList.remove("modal-open");
+  var b = document.querySelector("[data-act=planSignOpen]"); if (b) b.focus();
+}
+document.addEventListener("click", function (ev) { if (ev.target.id === "planModal") planSignClose(); });
+document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") planSignClose(); });
 
 function planRerender() { planSave(); rerender(); }
 document.addEventListener("click", function (ev) {
@@ -258,10 +287,16 @@ document.addEventListener("click", function (ev) {
   else if (act === "planUnAdd") { drop(P.a, id); delete P.o[id]; delete P.r[id]; planRerender(); }
   else if (act === "planSign") {
     var nm = document.getElementById("planSignName").value.trim(), s = Number(document.getElementById("planSignSal").value);
-    var y = Number(document.getElementById("planSignYrs").value), from = Number(document.getElementById("planSignFrom").value);
-    if (!nm) { toast("Give the signing a name", true); return; }
+    var y = planSignYrs(), from = Number(document.getElementById("planSignFrom").value);
+    if (!nm) { toast("Give the signing a name", true); document.getElementById("planSignName").focus(); return; }
     if (!(s > 0)) { toast("Enter a salary above $0", true); return; }
-    P.s.push([nm.slice(0, 40), LM.r1(s), Math.min(y, planN() - from), from]); planRerender();
+    P.s.push([nm.slice(0, 40), LM.r1(s), Math.min(y, planN() - from), from]); planSignClose(); planRerender();
+    toast("Added " + nm.slice(0, 40));
+  } else if (act === "planSignOpen") { planSignOpen(); }
+  else if (act === "planSignClose") { planSignClose(); }
+  else if (act === "planQuick") {
+    document.getElementById("planSignSal").value = b.getAttribute("data-v");
+    planSignRefresh();
   } else if (act === "planUnSign") { P.s.splice(Number(b.getAttribute("data-k")), 1); planRerender(); }
   else if (act === "planClear") { S.plan = planEmpty(P.code); S.planEdit = null; planRerender(); }
   else if (act === "planShare") {
@@ -270,8 +305,26 @@ document.addEventListener("click", function (ev) {
     rerender();
   }
 });
+// "$6.0M total · 2027-28 to 2029-30" under the made-up signing form
+function planSignYrs() { var r = document.querySelector("input[name=planSignYrs]:checked"); return r ? Number(r.value) : 1; }
+function planSignSummary(sal, yrs, from) {
+  yrs = Math.max(1, Math.min(yrs, planN() - from));
+  if (!(sal > 0)) return "Enter a salary";
+  return "<b>" + money(sal * yrs) + "M total</b> · " + esc(seasonOf(from)) + (yrs > 1 ? " to " + esc(seasonOf(from + yrs - 1)) : " only");
+}
+function planSignRefresh() {
+  var el = document.getElementById("planSignSum");
+  if (el) el.innerHTML = planSignSummary(Number(document.getElementById("planSignSal").value), planSignYrs(), Number(document.getElementById("planSignFrom").value));
+}
+document.addEventListener("change", function (ev) {
+  if (ev.target.name === "planSignYrs" || ev.target.id === "planSignFrom") planSignRefresh();
+});
+document.addEventListener("keydown", function (ev) {
+  if (ev.key === "Enter" && (ev.target.id === "planSignName" || ev.target.id === "planSignSal")) { var b = document.querySelector("[data-act=planSign]"); if (b) b.click(); }
+});
 var planTimer;
 document.addEventListener("input", function (ev) {
+  if (ev.target.id === "planSignSal") { planSignRefresh(); return; }
   if (ev.target.id !== "planq") return;
   var q = ev.target.value;
   clearTimeout(planTimer);
