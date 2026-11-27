@@ -429,9 +429,33 @@ function closePlayer() {
 }
 
 /* ============================ standings ============================ */
+// Future cap space: room under the $150M cap for every season on the books
+var CAP_LINE = 150;
+function futureCap(order) {
+  var L = S.L, k = S.fsort;   // season index to sort by (null = standings order)
+  var rows = order.map(function (t, i) { return { t: t, i: i, pay: book(t.code).payroll }; });
+  if (k != null) rows.sort(function (a, b) { return (CAP_LINE - b.pay[k]) - (CAP_LINE - a.pay[k]) || a.i - b.i; });
+  var body = rows.map(function (r) {
+    var t = r.t;
+    return '<tr><td><div class="tm"><span class="rk' + (r.i < 3 ? " top" : "") + '">' + (r.i + 1) + "</span>" + swatch(t.code) + "<div>" + teamLink(t.code) +
+      '<div class="muted small">' + record(t) + "</div></div></div></td>" + r.pay.map(function (p, j) {
+        var space = LM.r1(CAP_LINE - p), tier = LM.tierOf(p);
+        return '<td class="capcell' + (j === k ? " hl2" : "") + '"><b class="' + (space >= 0 ? "pos" : "neg") + '">' + (space >= 0 ? "+" : "−") + money(Math.abs(space)) + "</b>" +
+          '<span class="t-' + tier.key + '" title="' + esc(tier.label) + '"><i></i>' + money(p) + "</span></td>";
+      }).join("") + "</tr>";
+  }).join("");
+  return '<div class="tbl"><table class="ftbl"><tr><th>Team</th>' + L.seasons.map(function (x, j) {
+    return '<th class="sort' + (k === j ? " on" : "") + '" data-act="fSort" data-k="' + j + '" title="Sort by cap space in ' + esc(x) + '">' + esc(x) + "</th>"; }).join("") + "</tr>" + body + "</table></div>";
+}
 function pageStandings() {
   var L = S.L;
   var order = LM.standings(L.teams);
+  var tabs = '<div class="seg">' + [["standings", "Standings"], ["future", "Future cap space"]].map(function (x) {
+    return '<button data-act="sView" data-v="' + x[0] + '" class="' + ((S.sview || "standings") === x[0] ? "on" : "") + '">' + x[1] + "</button>"; }).join("") + "</div>";
+  if (S.sview === "future") {
+    return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + "</div><h1>Standings</h1></div>" + tabs + "</div>" +
+      futureCap(order) + tierLegend();
+  }
   var rows = order.map(function (t, i) {
     var b = book(t.code), p = b.payroll[0], odds = LM.lotteryOdds(i, order.length);
     var line = i === LM.PLAYOFF_TEAMS ? '<tr class="lotto-line"><td colspan="10"><span>Lottery line</span></td></tr>' : "";
@@ -444,7 +468,7 @@ function pageStandings() {
       '</td><td class="' + (b.maxes ? "" : "dim") + '">' + b.maxes + "/" + L.limits.maxes + '</td><td class="' + (b.smaxes ? "" : "dim") + '">' + b.smaxes + "/" + L.limits.supermaxes + "</td></tr>";
   }).join("");
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(L.season) + '</div><h1>Standings</h1><div class="sub">By record, then points for · records live from Sleeper · payroll includes cap holds and cash</div></div>' +
-    "</div>" +
+    tabs + "</div>" +
     '<div class="tbl"><table><tr><th>Team</th><th>W-L-T</th><th>PF</th><th title="Chance at the #1 pick (old NBA lottery odds)">#1 pick odds</th><th class=l>Payroll</th><th class=l>Level</th><th>Cash</th><th title="Commissioners power ranking">Power</th><th>Max</th><th>Supermax</th></tr>' +
     rows + "</table></div>" + tierLegend();
 }
@@ -1459,6 +1483,8 @@ document.addEventListener("click", function (ev) {
     return;
   }
   ppClose(t.closest && t.closest(".pp"));
+  var fth = t.closest && t.closest("th[data-act=fSort]");
+  if (fth) { var fk = Number(fth.getAttribute("data-k")); S.fsort = S.fsort === fk ? null : fk; rerender(); return; }
   var sth = t.closest && t.closest("th[data-act=stSort]");
   if (sth) {
     var sk = sth.getAttribute("data-k");
@@ -1482,6 +1508,7 @@ document.addEventListener("click", function (ev) {
 
   switch (act) {
     case "plFilter": S.pl.f = b.getAttribute("data-v"); S.pl.limit = 150; rerender(); break;
+    case "sView": S.sview = b.getAttribute("data-v"); rerender(); break;
     case "stFilter": S.st.f = b.getAttribute("data-v"); S.st.limit = 100; rerender(); break;
     case "stPer": S.st.per = b.getAttribute("data-v"); rerender(); break;
     case "stQual": S.st.qual = !S.st.qual; S.st.limit = 100; rerender(); break;
