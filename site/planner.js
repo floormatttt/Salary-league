@@ -131,10 +131,10 @@ function planMoves(P) {
 
 function planRow(r, P, kind) {
   var c = r.c, act = "";
-  if (kind === "keep" && c) act = '<button class="plx" data-act="planX" data-id="' + c.id + '" title="Take him and his salary off the books">trade away</button>';
+  if (kind === "keep" && c) act = '<button class="ptrade" data-act="planX" data-id="' + c.id + '" title="Take him and his salary off the books"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M2.5 5h10l-3-3M13.5 11h-10l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Trade away</button>';
   if (kind === "add") act = r.made != null ? '<button class="plx" data-act="planUnSign" data-k="' + r.made + '">remove</button>' : '<button class="plx" data-act="planUnAdd" data-id="' + c.id + '">remove</button>';
   var tds = r.line.cells.map(function (x) { return '<td class="' + (x.chg ? "pchg" : "") + '">' + x.html + "</td>"; }).join("");
-  var html = '<tr><td class="name">' + pwho(r.name) + (r.noc ? '<span class="flag bad">No contract</span>' : "") + act + '</td><td class="l muted">' + esc(c ? c.nba : "") + "</td>" + tds + "</tr>";
+  var html = '<tr><td class="name"><div class="pname"><span>' + pwho(r.name) + (r.noc ? '<span class="flag bad">No contract</span>' : "") + '</span>' + act + '</div></td><td class="l muted">' + esc(c ? c.nba : "") + "</td>" + tds + "</tr>";
   if (c && S.planEdit === c.id) html += planEditor(c, P);
   return html;
 }
@@ -201,7 +201,7 @@ function pagePlan(arg) {
     return '<tr><td class="name">' + pwho(h.name) + '</td><td class="l muted">' + esc(h.c ? h.c.nba : "") + "</td>" + L.seasons.map(function (_, i) { return "<td>" + salCell(h.c, i) + "</td>"; }).join("") + "</tr>";
   }).join("");
   if (B.rows.out.length) body += grp("Traded away", B.rows.out.length) + B.rows.out.map(function (r) {
-    return '<tr class="pout"><td class="name">' + pwho(r.name) + '<button class="plx go" data-act="planX" data-id="' + r.c.id + '">bring back</button></td><td class="l muted">' + esc(r.c.nba) + "</td>" +
+    return '<tr class="pout"><td class="name">' + pwho(r.name) + '<button class="ptrade back" data-act="planX" data-id="' + r.c.id + '">Bring back</button></td><td class="l muted">' + esc(r.c.nba) + "</td>" +
       L.seasons.map(function (_, i) { return "<td>" + salCell(r.c, i) + "</td>"; }).join("") + "</tr>";
   }).join("");
   var row = function (label, f, cl) { return "<tr" + (cl ? ' class="' + cl + '"' : "") + "><td>" + label + "</td><td></td>" + B.pay.map(f).join("") + "</tr>"; };

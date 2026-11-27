@@ -1377,3 +1377,19 @@ table.plantbl td.name .plx { margin-left: 8px; }
 table.plantbl tr.pout td.name .plx { text-decoration: none; }
 table.plantbl tr.pout td.name { opacity: 1; }
 table.plantbl tr.pout td.name .who { opacity: .55; }
+.ptrade { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; padding: 4px 11px; border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent);
+  border-radius: 999px; background: color-mix(in srgb, var(--bad) 11%, var(--card)); color: var(--bad); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; vertical-align: middle; }
+.ptrade:hover { background: var(--bad); border-color: var(--bad); color: #fff; }
+.ptrade.back { border-color: color-mix(in srgb, var(--good) 45%, transparent); background: color-mix(in srgb, var(--good) 11%, var(--card)); color: var(--good); }
+.ptrade.back:hover { background: var(--good); border-color: var(--good); color: #fff; }
+table.plantbl td.name { max-width: none; white-space: nowrap; }
+@media (max-width: 640px) {
+  table.plantbl td.name { max-width: none; white-space: normal; }
+  table.plantbl td.name .ptrade { display: flex; width: fit-content; margin: 4px 0 0 33px; padding: 3px 9px; font-size: 11px; }
+}
+table.plantbl .pname { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+table.plantbl .pname .ptrade { margin-left: 0; }
+@media (max-width: 640px) {
+  table.plantbl .pname { display: block; }
+  table.plantbl .pname .ptrade { margin: 4px 0 0 33px; }
+}
