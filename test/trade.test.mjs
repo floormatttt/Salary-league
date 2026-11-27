@@ -84,17 +84,18 @@ describe("evaluateTrade", () => {
     assert.equal(LM.evaluateTrade(L, { teams: ["SAC", "WAS"], moves: [{ type: "cash", amt: 10.5, from: "SAC", to: "WAS" }] }).legal, false);
   });
 
-  test("max limits: a third MAX or a second SMAX is illegal", () => {
+  test("max limits: 3 max, 2 max + 1 supermax, or 2 supermax", () => {
+    const ok = (m, s) => LM.maxComboOk(m, s);
+    assert.ok(ok(3, 0) && ok(2, 1) && ok(0, 2) && ok(1, 1) && ok(0, 0));
+    assert.ok(!ok(4, 0) && !ok(3, 1) && !ok(1, 2) && !ok(0, 3));
     const L = clone(base);
     const by = (code, s) => LM.teamBook(L, code).players.filter(p => p.c && p.c.st[0] === s);
     const codes = L.teams.map(t => t.code);
-    const team = codes.find(c => LM.teamBook(L, c).maxes === 2), other = codes.find(c => c !== team && by(c, "MAX").length);
-    assert.ok(team && other, "fixture has a team with 2 maxes");
-    const r = one(withPayroll(clone(base), team, 100), by(other, "MAX")[0].name, other, team);
-    assert.ok(r.problems.some(p => /3 max contracts/.test(p)), r.problems.join("; "));
-    const sm = codes.find(c => LM.teamBook(L, c).smaxes === 1), sm2 = codes.find(c => c !== sm && by(c, "SMAX").length);
-    assert.ok(sm && sm2, "fixture has two supermax teams");
-    assert.ok(one(withPayroll(clone(base), sm, 100), by(sm2, "SMAX")[0].name, sm2, sm).problems.some(p => /2 supermax/.test(p)));
+    // a team with a supermax and at least one max can't take a second supermax
+    const sm = codes.find(c => LM.teamBook(L, c).smaxes === 1 && LM.teamBook(L, c).maxes >= 1), sm2 = codes.find(c => c !== sm && by(c, "SMAX").length);
+    assert.ok(sm && sm2, "fixture has a max + supermax team and another supermax team");
+    const r = one(withPayroll(clone(base), sm, 100), by(sm2, "SMAX")[0].name, sm2, sm);
+    assert.ok(r.problems.some(p => /2 supermax contracts \(allowed/.test(p)), r.problems.join("; "));
   });
 
   test("a player can only be traded by the team that has him", () => {

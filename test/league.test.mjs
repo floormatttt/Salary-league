@@ -53,7 +53,7 @@ describe("league built from data + Sleeper", () => {
   test("shape", () => {
     assert.equal(L.season, "2026-27");
     assert.equal(L.teams.length, 30, "32 rosters, 2 unknown");
-    assert.deepEqual(L.limits, { activeRoster: 15, hardCap: 300, cash: 10, maxes: 2, supermaxes: 1 });
+    assert.deepEqual(L.limits, { activeRoster: 15, hardCap: 300, cash: 10, maxCombos: [[3, 0], [2, 1], [0, 2]] });
     assert.equal(L.teams[0].code, "OKC", "sorted by rank");
     assert.equal(L.teams[0].owner, "Ejjizzy");
   });

@@ -53,7 +53,7 @@ Replace my Google Sheets workbook with a **website** for my salary-cap fantasy N
 - **League Log**: Timestamp, Type, Team(s), Player(s), Details, Status. Newest on top. H1:I1 shows "Last synced".
 - **Rules tab** key numbers:
   - Cap tiers: normal 0–150, 1st apron 150.1–200, 2nd apron 200.1–250, luxury tax 250.1–300. "Cap space until max" uses 300, which I'm treating as a hard max.
-  - Teams can have at most **2 max contracts and 1 supermax**. Max = over 22.5 FPPG, supermax = over 30.
+  - Teams can carry **3 max contracts, or 2 max + 1 supermax, or 2 supermax** (changed Nov 2026; was 2 max + 1 supermax). Max = over 22.5 FPPG, supermax = over 30.
   - Minimum contract: $2M for 1 year. Rookie scale by pick.
   - Trades need commissioner approval (3-2 vote).
 

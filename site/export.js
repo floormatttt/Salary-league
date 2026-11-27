@@ -12,7 +12,7 @@ var Export = (function () {
   // guaranteed (g) isn't colored
   var KIND = { po: ["DCFCE7", "14532D"], to: ["FEE2E2", "991B1B"], max: ["FCE7F3", "9D174D"], smax: ["EDE9FE", "5B21B6"],
                hold: ["F1F3F6", "5D6778"], ufa: ["1E3A8A", "FFFFFF"], rfa: ["BAE6FD", "075985"] };
-  var TIER = { cap: ["DCFCE7", "166534"], first: ["E0F2FE", "075985"], second: ["FEF3C7", "92400E"], tax: ["FEE2E2", "991B1B"], over: ["F3E8FF", "6B21A8"] };
+  var TIER = { cap: ["E0F2FE", "075985"], first: ["DCFCE7", "166534"], second: ["FEF3C7", "92400E"], tax: ["FEE2E2", "991B1B"], over: ["F3E8FF", "6B21A8"] };
 
   function loadLib() {
     if (window.XLSX) return Promise.resolve(window.XLSX);

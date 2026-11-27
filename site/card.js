@@ -40,7 +40,16 @@ var Card = (function () {
     if (k === "ufa" || k === "rfa" || k === "fa") return '<span class="fa m-' + k + '">' + esc(String(y.salary).trim()) + "</span>";
     return '<span class="mny m-' + k + '">$' + v.toFixed(1) + (y.status && y.status !== "HOLD" ? "<em>" + esc(y.status) + "</em>" : "") + "</span>";
   }
-  function tile(label, val, cls) { return '<div class="ptile' + (cls ? " " + cls : "") + '"><b>' + val + "</b><span>" + esc(label) + "</span></div>"; }
+  function tile(label, val, cls, hue) {
+    var hz = hue != null;
+    return '<div class="ptile' + (hz ? " hz" : cls ? " " + cls : "") + '"' + (hz ? ' style="--h:' + hue + '"' : "") + "><b>" + val + "</b><span>" + esc(label) + "</span></div>";
+  }
+  // green-to-red color for a per-game stat, matching the Stats page (null when stats aren't loaded)
+  function hue(k, v) {
+    if (typeof heatHueFor !== "function") return null;
+    var season = st && st.season ? String(Number(st.season) - 1) : statSeasons()[0];
+    return heatHueFor(season, k, v);
+  }
   function sbox(title, cls, inner) { return '<div class="box pbox ' + (cls || "") + '">' + (title ? "<h3>" + esc(title) + "</h3>" : "") + inner + "</div>"; }
 
   // His Sleeper season totals (the Stats page's row), so every average on the card matches it.
@@ -94,8 +103,8 @@ var Card = (function () {
     var v = function (key) { return L ? f1(L.avg[key]) : s ? f1(s.avg[key]) : "—"; };
     return tile(c.seasons && c.seasons[0] ? c.seasons[0] : "Salary", y0 ? pill(y0, k.hold) : "—", "money") +
       tile("Years left", k ? String(yrs) : "—") +
-      tile("FPPG", L ? f1(L.fppg) : s ? f1(s.avg.fp) : d || sr === null ? "—" : '<span class="muted">…</span>', "hot") +
-      tile("PTS", v("pts")) + tile("REB", v("reb")) + tile("AST", v("ast"));
+      tile("FPPG", L ? f1(L.fppg) : s ? f1(s.avg.fp) : d || sr === null ? "—" : '<span class="muted">…</span>', "hot", L ? hue("fppg", L.fppg) : null) +
+      tile("PTS", v("pts"), "", L ? hue("pts", L.avg.pts) : null) + tile("REB", v("reb"), "", L ? hue("reb", L.avg.reb) : null) + tile("AST", v("ast"), "", L ? hue("ast", L.avg.ast) : null);
   }
 
   function gameLog(d, seasonSel, all, sr) {
@@ -199,12 +208,13 @@ var Card = (function () {
     var L = line(sr), s = d && d.ok && d.summary;
     var label = (typeof seasonLabel === "function" ? seasonLabel(statSeasons ? (st && st.season ? String(Number(st.season) - 1) : statSeasons()[0]) : "") : "") + " averages · " + L.g + " games";
     return sbox(label, "s-avg",
-      '<div class="ptiles">' + tile("FPPG", f1(L.fppg), "hot") + tile("MIN", f1(L.avg.min)) + tile("PTS", f1(L.avg.pts)) +
-      tile("REB", f1(L.avg.reb)) + tile("AST", f1(L.avg.ast)) + tile("STL", f1(L.avg.stl)) + tile("BLK", f1(L.avg.blk)) +
-      tile("TO", f1(L.avg.to)) + tile("3PM", f1(L.avg.tpm)) + tile("FG%", pct(L.pct.fg)) + tile("3P%", pct(L.pct.fg3)) +
-      tile("FT%", pct(L.pct.ft)) + "</div>") +
+      '<div class="ptiles">' + tile("FPPG", f1(L.fppg), "hot", hue("fppg", L.fppg)) + tile("MIN", f1(L.avg.min), "", hue("min", L.avg.min)) +
+      tile("PTS", f1(L.avg.pts), "", hue("pts", L.avg.pts)) + tile("REB", f1(L.avg.reb), "", hue("reb", L.avg.reb)) + tile("AST", f1(L.avg.ast), "", hue("ast", L.avg.ast)) +
+      tile("STL", f1(L.avg.stl), "", hue("stl", L.avg.stl)) + tile("BLK", f1(L.avg.blk), "", hue("blk", L.avg.blk)) + tile("TO", f1(L.avg.to), "", hue("to", L.avg.to)) +
+      tile("3PM", f1(L.avg.tpm), "", hue("tpm", L.avg.tpm)) + tile("FG%", pct(L.pct.fg), "", hue("fgp", L.pct.fg)) + tile("3P%", pct(L.pct.fg3), "", hue("tpp", L.pct.fg3)) +
+      tile("FT%", pct(L.pct.ft), "", hue("ftp", L.pct.ft)) + "</div>") +
     sbox("Advanced", "s-adv",
-      '<div class="ptiles">' + tile("TS%", pct(L.adv.ts)) + tile("eFG%", pct(L.adv.efg)) + tile("3PA rate", pct(L.adv.par3)) +
+      '<div class="ptiles">' + tile("TS%", pct(L.adv.ts), "", hue("ts", L.adv.ts)) + tile("eFG%", pct(L.adv.efg), "", hue("efg", L.adv.efg)) + tile("3PA rate", pct(L.adv.par3)) +
       tile("FT rate", pct(L.adv.ftr)) + tile("AST/TO", f2(L.adv.astTo)) + tile("FP / min", f2(L.adv.fpMin)) +
       (s ? tile("FP std dev", f1(s.adv.fpSd)) + tile("FP high", f1(s.adv.high), "good") + tile("FP low", f1(s.adv.low), "bad") : "") +
       tile("Double-doubles", L.adv.dd) + tile("Triple-doubles", L.adv.td) + "</div>") +

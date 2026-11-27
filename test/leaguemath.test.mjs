@@ -28,7 +28,7 @@ function league() {
     },
     holds: [{ code: "AAA", name: "Old Guy (cap hold)" }],
     cash: [{ season: "2026-27", code: "AAA", amt: 2 }],
-    limits: { hardCap: 300, cash: 10, maxes: 2, supermaxes: 1, activeRoster: 15 },
+    limits: { hardCap: 300, cash: 10, maxCombos: [[3, 0], [2, 1], [0, 2]], activeRoster: 15 },
   };
 }
 
