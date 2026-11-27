@@ -1,4 +1,9 @@
 [
+{"ts":"2026-11-27T00:18:27.918Z","type":"Commissioner drop","teams":"Roster 13 (unmapped)","players":"Bobi Klintman DUPLICATE","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
+{"ts":"2026-11-27T00:18:27.918Z","type":"Commissioner drop","teams":"Roster 13 (unmapped)","players":"Matas Buzelis DUPLICATE","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
+{"ts":"2026-11-27T00:18:21.644Z","type":"Commissioner drop","teams":"Roster 32 (unmapped)","players":"Kylor Kelley","details":"contract → cap hold; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
+{"ts":"2026-11-27T00:18:21.644Z","type":"Commissioner drop","teams":"Roster 32 (unmapped)","players":"Ron Holland DUPLICATE","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
+{"ts":"2026-11-27T00:18:21.644Z","type":"Commissioner drop","teams":"Roster 32 (unmapped)","players":"Leonard-DUP Miller-DUP","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
 {"ts":"2026-11-26T19:45:55.630Z","type":"Trade","teams":"Toronto ↔ Memphis","players":"Toronto gets: Landry Shamet, Miles Bridges, Brandon Williams  |  Memphis gets: Al Horford, Dean Wade, Jaylin Williams, Ebuka Okorie, 2028 1st (Cleveland's)","details":"","status":"Logged"},
 {"ts":"2026-11-26T03:37:53.670Z","type":"Trade","teams":"Orlando ↔ Utah","players":"Orlando gets: Jabari Smith Jr., 2029 1st (Golden State's)  |  Utah gets: Taylor Hendricks, Nolan Traore, 2027 1st (Orlando's), 2029 1st (Orlando's)","details":"","status":"Logged"},
 {"ts":"2026-11-25T21:22:00.000Z","type":"Trade","teams":"New York ↔ Chicago","players":"New York gets: Kevon Looney, Nae'Qwan Tomlin, 2027 1st (Los Angeles (C)'s)  |  Chicago gets: Neemias Queta, Jaylin Sellers","details":"","status":"Logged"},
