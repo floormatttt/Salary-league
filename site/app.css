@@ -1265,3 +1265,6 @@
   .ptile.hz span { color: hsl(var(--h) 40% 30%); }
   @media (prefers-color-scheme: dark) { .ptile.hz { background: hsl(var(--h) 70% 42% / .28); border-top-color: hsl(var(--h) 75% 55%); }
     .ptile.hz b { color: hsl(var(--h) 90% 82%); } .ptile.hz span { color: hsl(var(--h) 40% 72%); } }
+  /* stats: advanced analytics placeholder */
+  .box.soon { display: grid; place-items: center; gap: 10px; padding: 70px 20px; text-align: center; color: var(--accent); }
+  .box.soon h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 34px; color: var(--text); }

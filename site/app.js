@@ -985,8 +985,17 @@ function leaderBoard(title, rows, val, fmt) {
       '<span class="muted small">' + esc(r.nba) + (r.team ? " · " + esc(teamName(r.team)) : " · free agent") + '</span></div><div class="num">' + fmt(val(r)) + "</div></div>";
   }).join("") + "</div>";
 }
+function statTabs() {
+  return '<div class="seg">' + [["stats", "Stats"], ["advanced", "Advanced analytics"]].map(function (x) {
+    return '<button data-act="stView" data-v="' + x[0] + '" class="' + ((S.st.view || "stats") === x[0] ? "on" : "") + '">' + x[1] + "</button>"; }).join("") + "</div>";
+}
 function pageStats() {
   var o = S.st, seasons = statSeasons();
+  if (o.view === "advanced") {
+    return '<div class="pagehead"><div><div class="eyebrow">' + esc(seasonLabel(o.season || seasons[0])) + "</div><h1>Advanced analytics</h1></div>" + statTabs() + "</div>" +
+      '<div class="box soon"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      "<h2>Coming soon</h2></div>";
+  }
   if (!o.season) o.season = seasons[0];
   if (!S.stats[o.season]) {
     loadStats(o.season).then(function () { if (/^stats/.test(S.hash)) rerender(); }, function (e) { view().innerHTML = box("", '<div class="err">' + esc(e.message) + "</div>"); });
@@ -1002,7 +1011,8 @@ function pageStats() {
     leaderBoard("Fantasy points per game", byFp, function (r) { return r.fppg; }, big) +
     leaderBoard("Points per game", byPts, function (r) { return r.pts / r.gp; }, big) + "</div>";
   return '<div class="pagehead"><div><div class="eyebrow">' + esc(seasonLabel(o.season)) + '</div><h1>Stats</h1></div>' +
-    dropdown("stSeason", o.season, seasons.map(function (x) { return { v: x, html: '<span class="dd-name">' + esc(seasonLabel(x)) + " season</span>" }; }), "Season") + "</div>" +
+    '<div class="row" style="gap:10px">' + statTabs() +
+    dropdown("stSeason", o.season, seasons.map(function (x) { return { v: x, html: '<span class="dd-name">' + esc(seasonLabel(x)) + " season</span>" }; }), "Season") + "</div></div>" +
     boards +
     '<div class="toolbar"><div class="search"><input type="search" id="stq" placeholder="Search players or NBA teams" value="' + esc(o.q) + '" autocomplete="off" aria-label="Search"></div>' +
     dropdown("stTeam", o.team, teamItems("All league teams"), "League team") + "</div>" +
@@ -1759,6 +1769,7 @@ document.addEventListener("click", function (ev) {
       S.pl.ks = []; S.pl.kmode = "any"; S.pl.f = "all"; S.pl.team = ""; S.pl.q = "";
       PL_MORE.forEach(function (k) { S.pl[k] = ""; }); S.pl.ss = 0; S.pl.limit = 150; rerender(); break;
     case "sView": S.sview = b.getAttribute("data-v"); rerender(); break;
+    case "stView": S.st.view = b.getAttribute("data-v"); rerender(); break;
     case "stFilter": S.st.f = b.getAttribute("data-v"); S.st.limit = 100; rerender(); break;
     case "stPer": S.st.per = b.getAttribute("data-v"); rerender(); break;
     case "stQual": S.st.qual = !S.st.qual; S.st.limit = 100; rerender(); break;
