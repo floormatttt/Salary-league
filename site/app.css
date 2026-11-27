@@ -1452,3 +1452,86 @@ table.plantbl .pname .ptrade { margin-left: 0; }
   .row.start > .dd { flex: 1 1 0; min-width: 0; width: auto; }
   .row.start > .dd .dd-btn { width: 100%; }
 }
+
+/* ================= trade machine: result ================= */
+.tverdict { padding: 18px 20px; border-width: 1px; }
+.tverdict.ok { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); background: color-mix(in srgb, var(--good) 6%, var(--card)); }
+.tverdict.no { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); background: color-mix(in srgb, var(--bad) 6%, var(--card)); }
+.tv-head { display: flex; align-items: center; gap: 14px; }
+.tv-ic { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 999px; color: #fff; font-size: 22px; font-weight: 900; }
+.tverdict.ok .tv-ic { background: var(--good); } .tverdict.no .tv-ic { background: var(--bad); }
+.tverdict .verdict { font-size: 28px; line-height: 1.1; }
+.tv-sub { margin-top: 3px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.tv-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.tv-list li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--bad); font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.tv-list li.warn { border-left-color: var(--warn); }
+.tv-list li .tcode { flex: none; margin-top: 1px; }
+.tv-note { margin-top: 12px; color: var(--faint); font-size: 12px; }
+
+.tres-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.tres-grid > .box { margin-bottom: 0; }
+.tres { padding: 0; overflow: hidden; border-top: 4px solid var(--c1); }
+.tres.tres-no { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 35%, transparent); }
+.tres-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; }
+.tres-head .badge-team.sm { width: 40px; height: 40px; background: var(--c1); color: #fff; box-shadow: inset 0 -3px 0 var(--c2); }
+.tres-head b { display: block; font-size: 17px; line-height: 1.2; }
+.tres-tiers { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
+.tres-tiers i, .tk b i { font-style: normal; color: var(--faint); margin: 0 5px; font-weight: 600; }
+.tres-st { flex: none; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.tres.tres-ok .tres-st { color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+.tres.tres-no .tres-st { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+
+.tm-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tm-col { border-radius: 12px; padding: 10px 12px; background: var(--card-2); border: 1px solid var(--line-2); min-width: 0; }
+.tm-lbl { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.tm-lbl span { padding: 0 6px; border-radius: 999px; font-size: 10.5px; letter-spacing: 0; background: var(--chip); color: var(--muted); }
+.tm-col.gets .tm-lbl { color: var(--good); } .tm-col.sends .tm-lbl { color: var(--bad); }
+.tm-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.ti { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; font-size: 13.5px; }
+.ti .who { min-width: 0; } .ti .who .plink { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ti .av { width: 26px; height: 26px; }
+.ti-v { flex: none; }
+.ti-ic { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; font-size: 10px; font-weight: 800; }
+.ti-ic.pk { background: var(--accent-soft); color: var(--accent); }
+.ti-ic.cs { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); font-size: 13px; }
+.ti:has(.ti-ic) { justify-content: flex-start; }
+.ti-n { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tm-none { color: var(--faint); font-size: 13px; font-weight: 600; }
+
+.tkpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-content: start; }
+.tk { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 11px; border: 1px solid var(--line); background: var(--card); min-width: 0; }
+.tk-l { font-size: 11px; font-weight: 700; color: var(--muted); }
+.tk b { font-size: 15.5px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk b i { margin: 0 3px; }
+.tk-s { font-size: 11px; color: var(--faint); font-weight: 600; min-height: 1em; }
+.tk.bad { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); background: color-mix(in srgb, var(--bad) 6%, var(--card)); }
+.tk.bad .tk-s { color: var(--bad); }
+
+.tres > .tbl { margin: 0 16px 16px; }
+table.ttbl th, table.ttbl td { padding: 7px 10px; }
+table.ttbl td:first-child { font-weight: 700; color: var(--muted); }
+table.ttbl tr.total td { font-weight: 800; }
+@media (max-width: 640px) {
+  .tverdict { padding: 14px; }
+  .tverdict .verdict { font-size: 23px; }
+  .tv-ic { width: 38px; height: 38px; font-size: 19px; }
+  .tres-head { padding: 12px 12px 10px; }
+  .tm-cols { grid-template-columns: 1fr; padding: 0 12px; }
+  .tkpis { padding: 10px 12px; gap: 6px; }
+  .tk { padding: 8px 9px; } .tk b { font-size: 13.5px; }
+  .tres > .tbl { margin: 0 12px 12px; }
+}
+.tres-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; padding: 0 16px 14px; align-items: start; }
+.tk b { font-size: 19px; }
+@media (max-width: 900px) { .tres-body { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .tres-body { padding: 0 12px 12px; gap: 10px; }
+  .tk b { font-size: 16px; }
+}
+.tres-head .grow { min-width: 0; }
+.tres-tiers { flex-wrap: wrap; row-gap: 4px; }
+@media (max-width: 640px) {
+  .tres-head { align-items: flex-start; }
+  .tres-st { margin-top: 2px; font-size: 11px; padding: 3px 8px; }
+  .tres-tiers .tier { font-size: 11px; }
+}

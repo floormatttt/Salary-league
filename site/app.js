@@ -1108,31 +1108,66 @@ function tradeResults() {
   if (T.teams.length < 2) return '<div class="box empty">Pick at least two teams.</div>';
   if (!T.moves.length) return '<div class="box empty">Tap the players, picks or cash each team sends.</div>';
   var r = LM.evaluateTrade(L, T);
-  var head = '<div class="box ' + (r.legal ? "v-ok" : "v-no") + '"><div class="verdict ' + (r.legal ? "ok" : "no") + '">' + (r.legal ? "✓ Legal trade" : "✗ Not legal") + "</div>" +
-    (r.problems.length ? '<ul class="issues err">' + r.problems.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
-    (r.warnings.length ? '<ul class="issues" style="color:var(--warn)">' + r.warnings.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : "") +
-    '<p class="muted small" style="margin:8px 0 0">Apron level is judged on payroll before the trade. Commissioners still vote (3-2) on every trade.</p></div>';
-  var th = L.seasons.map(function (s) { return "<th>" + esc(s) + "</th>"; }).join("");
+  var nMoves = T.moves.length, byTeam = function (x) { return r.teams.filter(function (t) { return x.indexOf(t.name) === 0; })[0]; };
+  var issue = function (x, cls) {
+    var t = byTeam(x);
+    return '<li class="' + cls + '">' + (t ? '<span class="tcode tc"' + teamStyle(t.code) + ">" + esc(t.code) + "</span>" : "") + "<span>" + esc(x) + "</span></li>";
+  };
+  var head = '<div class="box tverdict ' + (r.legal ? "ok" : "no") + '"><div class="tv-head"><span class="tv-ic" aria-hidden="true">' + (r.legal ? "✓" : "✗") + "</span><div>" +
+    '<div class="verdict ' + (r.legal ? "ok" : "no") + '">' + (r.legal ? "Legal trade" : "Not legal") + "</div>" +
+    '<div class="tv-sub">' + r.teams.length + " teams · " + nMoves + (nMoves === 1 ? " piece" : " pieces") + " moving" +
+    (r.problems.length ? " · " + r.problems.length + (r.problems.length === 1 ? " problem" : " problems") : "") +
+    (r.warnings.length ? " · " + r.warnings.length + (r.warnings.length === 1 ? " heads-up" : " heads-ups") : "") + "</div></div></div>" +
+    (r.problems.length || r.warnings.length ? '<ul class="tv-list">' + r.problems.map(function (x) { return issue(x, "bad"); }).join("") + r.warnings.map(function (x) { return issue(x, "warn"); }).join("") + "</ul>" : "") +
+    '<div class="tv-note">Apron level is judged on payroll before the trade. Commissioners still vote (3-2) on every trade.</div></div>';
+
   var teams = r.teams.map(function (t) {
-    var limit = t.tier.match === null ? "no limit" : t.tier.match === 0 ? "can only lose cap" : "limit +" + money(t.tier.match);
-    var picksIn = T.moves.filter(function (m) { return m.type === "pick" && m.to === t.code; }).map(function (m) { return pickName(m.label, m.from); });
-    var picksOut = T.moves.filter(function (m) { return m.type === "pick" && m.from === t.code; }).map(function (m) { return pickName(m.label, m.from); });
-    var gets = t.inP.map(function (x) { return pbtn(x); }).concat(picksIn.map(esc), t.cashIn ? [money(t.cashIn) + "M cash"] : []);
-    var sends = t.outP.map(function (x) { return pbtn(x); }).concat(picksOut.map(esc), t.cashOut ? [money(t.cashOut) + "M cash"] : []);
-    var row = function (label, arr, f) { return "<tr><td>" + label + "</td>" + arr.map(function (v, i) { return f(v, i); }).join("") + "</tr>"; };
-    return '<div class="box"><div class="row"><b>' + (t.ok ? '<span class="ok">✓</span> ' : '<span class="err">✗</span> ') + esc(t.name) + "</b>" +
-      '<span class="small">' + tierChip(t.pre[0]) + " → " + tierChip(t.post[0]) + "</span></div>" +
-      '<div class="small" style="margin-bottom:8px"><div><b>Gets:</b> ' + (gets.join(", ") || "nothing") + "</div><div><b>Sends:</b> " + (sends.join(", ") || "nothing") + "</div>" +
-      '<div class="muted">Change this season <b class="' + (t.ok ? "" : "err") + '">' + signed(t.delta) + "</b> (" + limit + ") · cash balance " + signed(t.cashBefore) + " → " + signed(t.cashAfter) + "</div></div>" +
-      '<div class="tbl"><table><tr><th></th>' + th + "</tr>" +
-      row("Before", t.pre, function (v) { return "<td>" + money(v) + "</td>"; }) +
-      row("Out", t.outSal, function (v) { return "<td>" + (v ? "-" + money(v) : "") + "</td>"; }) +
-      row("In", t.inSal, function (v) { return "<td>" + (v ? "+" + money(v) : "") + "</td>"; }) +
-      row("Cash", t.pre, function (_, i) { var c = t.cashOut - t.cashIn; return "<td>" + (i === 0 && c ? signed(c) : "") + "</td>"; }) +
-      '<tr class="total"><td>After</td>' + t.post.map(function (v) { return '<td class="tot t-' + LM.tierOf(v).key + '">' + money(v) + "</td>"; }).join("") + "</tr>" +
-      row("Level after", t.post, function (v) { return "<td>" + tierChip(v) + "</td>"; }) +
-      "</table></div></div>";
+    var limit = t.tier.match === null ? "No limit" : t.tier.match === 0 ? "Can only lose cap" : "Limit +" + money(t.tier.match) + "M";
+    var cash = LM.r1(t.cashOut - t.cashIn);
+    // seasons that have money before or after (at least two)
+    var last = 1;
+    t.pre.forEach(function (v, i) { if (v || t.post[i]) last = Math.max(last, i); });
+    var idx = L.seasons.slice(0, last + 1).map(function (_, i) { return i; });
+    var item = function (m) {
+      if (m.type === "player") {
+        var c = LM.contractFor(L, m.name);
+        return '<li class="ti">' + pwho(m.name) + '<span class="ti-v">' + (c ? salCell(c, 0) : "") + "</span></li>";
+      }
+      if (m.type === "pick") return '<li class="ti"><span class="ti-ic pk">PK</span><span class="ti-n">' + esc(pickName(m.label, m.from)) + "</span></li>";
+      return '<li class="ti"><span class="ti-ic cs">$</span><span class="ti-n">' + money(m.amt) + 'M cash</span></li>';
+    };
+    var col = function (cls, label, list) {
+      return '<div class="tm-col ' + cls + '"><div class="tm-lbl">' + label + '<span>' + list.length + "</span></div>" +
+        (list.length ? '<ul class="tm-items">' + list.map(item).join("") + "</ul>" : '<div class="tm-none">Nothing</div>') + "</div>";
+    };
+    var gets = T.moves.filter(function (m) { return m.to === t.code; }), sends = T.moves.filter(function (m) { return m.from === t.code; });
+    var over = !t.ok && t.tier.match !== null && t.delta > t.tier.match;
+    var cashBad = Math.abs(t.cashAfter) > L.limits.cash + 1e-9;
+    var kpi = function (label, main, sub, bad) {
+      return '<div class="tk' + (bad ? " bad" : "") + '"><span class="tk-l">' + label + '</span><b>' + main + '</b><span class="tk-s">' + sub + "</span></div>";
+    };
+    var row = function (label, f, cls) { return "<tr" + (cls ? ' class="' + cls + '"' : "") + "><td>" + label + "</td>" + idx.map(f).join("") + "</tr>"; };
+    var any = function (arr) { return idx.some(function (i) { return arr[i]; }); };
+    var table = '<div class="tbl"><table class="ttbl"><tr><th></th>' + idx.map(function (i) { return "<th>" + esc(L.seasons[i]) + "</th>"; }).join("") + "</tr>" +
+      row("Before", function (i) { return "<td>" + money(t.pre[i]) + "</td>"; }) +
+      (any(t.outSal) ? row("Out", function (i) { return '<td class="neg">' + (t.outSal[i] ? "−" + money(t.outSal[i]) : "") + "</td>"; }) : "") +
+      (any(t.inSal) ? row("In", function (i) { return '<td class="pos">' + (t.inSal[i] ? "+" + money(t.inSal[i]) : "") + "</td>"; }) : "") +
+      (cash ? row("Cash", function (i) { return '<td class="' + (cash < 0 ? "neg" : "pos") + '">' + (i === 0 ? signed(cash) : "") + "</td>"; }) : "") +
+      row("After", function (i) { return '<td class="tot t-' + LM.tierOf(t.post[i]).key + '">' + money(t.post[i]) + "</td>"; }, "total") +
+      row("Level", function (i) { return "<td>" + tierChip(t.post[i]) + "</td>"; }) +
+      "</table></div>";
+    return '<div class="box tres ' + (t.ok ? "tres-ok" : "tres-no") + '"' + teamStyle(t.code) + '>' +
+      '<div class="tres-head"><span class="badge-team sm">' + esc(t.code) + '</span><div class="grow"><b>' + esc(t.name) + "</b>" +
+      '<span class="tres-tiers">' + tierChip(t.pre[0]) + '<i aria-hidden="true">→</i>' + tierChip(t.post[0]) + "</span></div>" +
+      '<span class="tres-st">' + (t.ok ? "✓ Works" : "✗ Breaks a rule") + "</span></div>" +
+      '<div class="tres-body"><div class="tm-cols">' + col("gets", "Gets", gets) + col("sends", "Sends", sends) + "</div>" +
+      '<div class="tkpis">' +
+        kpi("Payroll", money(t.post[0]), "was " + money(t.pre[0]), false) +
+        kpi("Change", '<span class="' + (t.delta > 0 ? "neg" : t.delta < 0 ? "pos" : "") + '">' + signed(t.delta) + "</span>", limit, over) +
+        kpi("Cash balance", signed(t.cashAfter), cashBad ? "Max&nbsp;±$" + L.limits.cash + "M" : "was " + signed(t.cashBefore), cashBad) +
+      "</div></div>" + table + "</div>";
   }).join("");
+  teams = '<div class="tres-grid">' + teams + "</div>";
   var hasCash = T.moves.some(function (m) { return m.type === "cash"; });
   var admin = S.admin.token && hasCash ? '<div class="box"><button class="btn pri" data-act="recordTradeCash">Record cash from this trade</button>' +
     ' <span class="muted small">Adds the cash moves to the Cash Ledger for ' + esc(L.season) + ".</span></div>" : "";
