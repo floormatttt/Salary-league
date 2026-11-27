@@ -9,5 +9,6 @@
 {"id":8,"date":"2026-11-26T00:39:33.228Z","season":"2026-27","code":"MIA","amt":6,"note":"Opening balance","ref":""},
 {"id":9,"date":"2026-11-26T00:39:33.228Z","season":"2026-27","code":"PHI","amt":-4,"note":"Opening balance","ref":""},
 {"id":10,"date":"2026-11-26T00:39:33.228Z","season":"2026-27","code":"TOR","amt":-3,"note":"Opening balance","ref":""},
-{"id":11,"date":"2026-11-26T00:39:33.228Z","season":"2026-27","code":"UTA","amt":-1,"note":"Opening balance","ref":""}
+{"id":11,"date":"2026-11-26T00:39:33.228Z","season":"2026-27","code":"UTA","amt":-1,"note":"Opening balance","ref":""},
+{"id":12,"date":"2026-11-27T22:11:33.093Z","season":"2026-27","code":"ATL","amt":10,"note":"Commissioner: took cash","ref":""}
 ]
