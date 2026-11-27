@@ -43,6 +43,30 @@ var Card = (function () {
   function tile(label, val, cls) { return '<div class="ptile' + (cls ? " " + cls : "") + '"><b>' + val + "</b><span>" + esc(label) + "</span></div>"; }
   function sbox(title, cls, inner) { return '<div class="box pbox ' + (cls || "") + '">' + (title ? "<h3>" + esc(title) + "</h3>" : "") + inner + "</div>"; }
 
+  // His Sleeper season totals (the Stats page's row), so every average on the card matches it.
+  // espnSeason: "" for this season, else ESPN's end year (2026 = the 2025-26 season = Sleeper "2025").
+  function sleeperLine(c, espnSeason) {
+    if (typeof loadStats !== "function" || typeof statRows !== "function") return Promise.resolve(null);
+    var season = espnSeason ? String(Number(espnSeason) - 1) : statSeasons()[0];
+    return loadStats(season).then(function () {
+      var rows = statRows(season), k = LeagueMath.norm(c.name);
+      return rows.filter(function (r) { return r.pid === String(c.sleeperId); })[0] || rows.filter(function (r) { return LeagueMath.norm(r.name) === k; })[0] || null;
+    }, function () { return null; });
+  }
+  // per-game / percentage view of a Sleeper line
+  function line(sr) {
+    var x = sr.raw || {}, g = sr.gp, div = function (a, b) { return b ? a / b : null; }, n = function (k) { return Number(x[k]) || 0; };
+    return {
+      g: g, fppg: sr.fppg, fp: sr.fp,
+      avg: { min: n("min") / g, pts: n("pts") / g, reb: n("reb") / g, ast: n("ast") / g, stl: n("stl") / g, blk: n("blk") / g, to: n("to") / g, tpm: n("tpm") / g },
+      pct: { fg: div(n("fgm"), n("fga")), fg3: div(n("tpm"), n("tpa")), ft: div(n("ftm"), n("fta")) },
+      adv: { ts: div(n("pts"), 2 * (n("fga") + 0.44 * n("fta"))), efg: div(n("fgm") + 0.5 * n("tpm"), n("fga")), par3: div(n("tpa"), n("fga")), ftr: div(n("fta"), n("fga")),
+             astTo: div(n("ast"), n("to")), fpMin: div(sr.fp, n("min")), dd: n("dd"), td: n("td") },
+      per36: n("min") ? { fp: sr.fp / n("min") * 36, pts: n("pts") / n("min") * 36, reb: n("reb") / n("min") * 36, ast: n("ast") / n("min") * 36, stl: n("stl") / n("min") * 36, blk: n("blk") / n("min") * 36 } : null,
+    };
+  }
+  function eligibility(fppg) { return fppg > 30 ? "Supermax eligible (30+ FPPG)" : fppg > 22.5 ? "Max eligible (22.5+ FPPG)" : ""; }
+
   /* ---------------- renderers (return HTML strings) ---------------- */
   function header(c) {
     var e = c.espn || {};
@@ -63,23 +87,24 @@ var Card = (function () {
   }
 
   // the numbers people look for first: salary, contract length, fantasy production
-  function quick(c, d) {
+  function quick(c, d, sr) {
     var k = c.contracts && c.contracts[0], y0 = k && k.years[0];
     var yrs = k ? k.years.filter(function (y) { return moneyOf(y.salary) != null; }).length : 0;
-    var s = d && d.ok && d.summary;
+    var s = d && d.ok && d.summary, L = sr ? line(sr) : null;
+    var v = function (key) { return L ? f1(L.avg[key]) : s ? f1(s.avg[key]) : "—"; };
     return tile(c.seasons && c.seasons[0] ? c.seasons[0] : "Salary", y0 ? pill(y0, k.hold) : "—", "money") +
       tile("Years left", k ? String(yrs) : "—") +
-      tile("FPPG", s ? f1(s.avg.fp) : d ? "—" : '<span class="muted">…</span>', "hot") +
-      tile("PTS", s ? f1(s.avg.pts) : "—") + tile("REB", s ? f1(s.avg.reb) : "—") + tile("AST", s ? f1(s.avg.ast) : "—");
+      tile("FPPG", L ? f1(L.fppg) : s ? f1(s.avg.fp) : d || sr === null ? "—" : '<span class="muted">…</span>', "hot") +
+      tile("PTS", v("pts")) + tile("REB", v("reb")) + tile("AST", v("ast"));
   }
 
-  function gameLog(d, seasonSel, all) {
+  function gameLog(d, seasonSel, all, sr) {
     var top = '<div class="row"><b>' + esc(d && d.season ? d.season + " season" : "Game log") + "</b>" + seasonSel + "</div>";
     if (!d || !d.ok) return top + sbox("", "", '<div class="err">' + esc(d && d.msg || "Couldn't load the game log.") + "</div>");
     if (!d.rows.length) return top + sbox("", "", '<div class="muted">No games yet this season.</div>');
     var s = d.summary, avg = s ? s.avg.fp : 0, sd = s ? s.adv.fpSd || 0 : 0;
-    var strip = s ? '<div class="ptiles">' + tile("FPPG", f1(s.avg.fp), "hot") + tile("Last 5", f1(s.adv.last5)) +
-      tile("Last 10", f1(s.adv.last10)) + tile("High", f1(s.adv.high), "good") + tile("Games", s.g) + "</div>" : "";
+    var strip = s ? '<div class="ptiles">' + tile("FPPG", f1(sr ? sr.fppg : s.avg.fp), "hot") + tile("Last 5", f1(s.adv.last5)) +
+      tile("Last 10", f1(s.adv.last10)) + tile("High", f1(s.adv.high), "good") + tile("Games", sr ? sr.gp : s.g) + "</div>" : "";
     var head = "<tr><th>Date</th><th class=l>Opp</th><th class=l>Result</th><th>FP</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th>" +
                "<th>STL</th><th>BLK</th><th>TO</th><th>FG</th><th>3PT</th><th>FT</th><th>PF</th></tr>";
     var shown = all ? d.rows : d.rows.slice(0, 10);
@@ -147,7 +172,8 @@ var Card = (function () {
       return '<div class="fact' + (r[0] === "Injury" && e.inj ? " bad" : "") + '"><span>' + esc(r[0]) + "</span><b>" + esc(r[1]) + "</b></div>"; }).join("") + "</div>");
   }
 
-  function stats(c, d) {
+  function stats(c, d, sr) {
+    if (sr) return statsFromSleeper(d, sr);
     if (!d) return sbox("", "", loading("Loading stats"));
     if (!d.ok || !d.summary) return sbox("", "", '<div class="muted">' + esc(d.msg || "No regular-season games yet.") + "</div>");
     var s = d.summary;
@@ -165,6 +191,27 @@ var Card = (function () {
       '<div class="ptiles">' + tile("FP", f1(s.per36.fp), "hot") + tile("PTS", f1(s.per36.pts)) + tile("REB", f1(s.per36.reb)) +
       tile("AST", f1(s.per36.ast)) + tile("STL", f1(s.per36.stl)) + tile("BLK", f1(s.per36.blk)) + "</div>") +
     (d.playoffs ? sbox("Playoffs · " + d.playoffs.g + " games", "s-po",
+      '<div class="ptiles">' + tile("FPPG", f1(d.playoffs.avg.fp), "hot") + tile("PTS", f1(d.playoffs.avg.pts)) +
+      tile("REB", f1(d.playoffs.avg.reb)) + tile("AST", f1(d.playoffs.avg.ast)) + "</div>") : "");
+  }
+
+  function statsFromSleeper(d, sr) {
+    var L = line(sr), s = d && d.ok && d.summary;
+    var label = (typeof seasonLabel === "function" ? seasonLabel(statSeasons ? (st && st.season ? String(Number(st.season) - 1) : statSeasons()[0]) : "") : "") + " averages · " + L.g + " games";
+    return sbox(label, "s-avg",
+      '<div class="ptiles">' + tile("FPPG", f1(L.fppg), "hot") + tile("MIN", f1(L.avg.min)) + tile("PTS", f1(L.avg.pts)) +
+      tile("REB", f1(L.avg.reb)) + tile("AST", f1(L.avg.ast)) + tile("STL", f1(L.avg.stl)) + tile("BLK", f1(L.avg.blk)) +
+      tile("TO", f1(L.avg.to)) + tile("3PM", f1(L.avg.tpm)) + tile("FG%", pct(L.pct.fg)) + tile("3P%", pct(L.pct.fg3)) +
+      tile("FT%", pct(L.pct.ft)) + "</div>") +
+    sbox("Advanced", "s-adv",
+      '<div class="ptiles">' + tile("TS%", pct(L.adv.ts)) + tile("eFG%", pct(L.adv.efg)) + tile("3PA rate", pct(L.adv.par3)) +
+      tile("FT rate", pct(L.adv.ftr)) + tile("AST/TO", f2(L.adv.astTo)) + tile("FP / min", f2(L.adv.fpMin)) +
+      (s ? tile("FP std dev", f1(s.adv.fpSd)) + tile("FP high", f1(s.adv.high), "good") + tile("FP low", f1(s.adv.low), "bad") : "") +
+      tile("Double-doubles", L.adv.dd) + tile("Triple-doubles", L.adv.td) + "</div>") +
+    (L.per36 ? sbox("Per 36 minutes", "s-36",
+      '<div class="ptiles">' + tile("FP", f1(L.per36.fp), "hot") + tile("PTS", f1(L.per36.pts)) + tile("REB", f1(L.per36.reb)) +
+      tile("AST", f1(L.per36.ast)) + tile("STL", f1(L.per36.stl)) + tile("BLK", f1(L.per36.blk)) + "</div>") : "") +
+    (d && d.playoffs ? sbox("Playoffs · " + d.playoffs.g + " games", "s-po",
       '<div class="ptiles">' + tile("FPPG", f1(d.playoffs.avg.fp), "hot") + tile("PTS", f1(d.playoffs.avg.pts)) +
       tile("REB", f1(d.playoffs.avg.reb)) + tile("AST", f1(d.playoffs.avg.ast)) + "</div>") : "");
   }
@@ -204,7 +251,7 @@ var Card = (function () {
 
   function open(root, name) {
     name = String(name || "").trim();
-    st = { root: root, name: name, card: null, log: null, season: "", all: false, tab: "over" };
+    st = { root: root, name: name, card: null, log: null, sr: undefined, season: "", all: false, tab: "over" };
     root.removeAttribute("style");
     root.innerHTML = '<div data-role="header">' + sbox("", "", loading("Loading " + name)) + "</div>" + tabs() +
       '<div data-panel="over"><div data-role="con">' + loading() + '</div><div data-role="bio"></div></div>' +
@@ -226,6 +273,7 @@ var Card = (function () {
       q("con").innerHTML = contract(c);
       q("stats").innerHTML = stats(c, null);
       loadLog();
+      loadLine();
       loadTxns(c, mine);
     }, fail("header"));
   }
@@ -250,19 +298,33 @@ var Card = (function () {
     }, fail("txn"));
   }
 
+  // Sleeper season line: the card's averages, FPPG and max-eligible tag (same as the Stats page)
+  function loadLine() {
+    var mine = st, want = st.season, c = st.card;
+    st.sr = undefined;
+    sleeperLine(c, want).then(function (sr) {
+      if (st !== mine || st.season !== want) return;
+      st.sr = sr;
+      paint();
+    });
+  }
+  function paint() {
+    var c = st.card, d = st.log, sr = st.sr || null;
+    if (d) q("log").innerHTML = gameLog(d, seasonSelect(), st.all, sr);
+    if (d || sr) q("stats").innerHTML = stats(c, d, sr);
+    if (!st.season) {
+      var qk = q("quick"); if (qk) qk.innerHTML = quick(c, d, st.sr === undefined ? undefined : sr);
+      var chip = q("elig"), el = sr ? eligibility(sr.fppg) : d && d.summary ? d.summary.eligibility : "";
+      if (chip) { chip.textContent = el || ""; chip.style.display = el ? "" : "none"; }
+    }
+  }
   function loadLog() {
     var mine = st, want = st.season, c = st.card;
     q("log").innerHTML = loading("Loading games");
     api("getGameLog", c.espn && c.espn.id, want).then(function (d) {
       if (st !== mine || st.season !== want) return; // player or season changed meanwhile
       st.log = d;
-      q("log").innerHTML = gameLog(d, seasonSelect(), st.all);
-      q("stats").innerHTML = stats(c, d);
-      if (!want) { var qk = q("quick"); if (qk) qk.innerHTML = quick(c, d); }
-      var chip = q("elig");
-      if (chip && d && d.summary && d.summary.eligibility && !want) {
-        chip.textContent = d.summary.eligibility; chip.style.display = "";
-      }
+      paint();
     }, fail("log"));
   }
 
@@ -275,10 +337,10 @@ var Card = (function () {
       var t = ev.target.closest && ev.target.closest('[data-role="moreGames"]');
       if (!t) return;
       st.all = !st.all;
-      q("log").innerHTML = gameLog(st.log, seasonSelect(), st.all);
+      q("log").innerHTML = gameLog(st.log, seasonSelect(), st.all, st.sr || null);
     });
     root.addEventListener("change", function (ev) {
-      if (st && ev.target.getAttribute("data-role") === "season") { st.season = ev.target.value; loadLog(); }
+      if (st && ev.target.getAttribute("data-role") === "season") { st.season = ev.target.value; loadLog(); loadLine(); }
     });
   }
 

@@ -641,7 +641,7 @@ function statRows(season) {
     return { pid: pid, name: name, nba: p[1] || "", team: r ? r.code : "", c: c, gp: gp, min: x.min || 0, fp: fp, fppg: fp / gp,
       pts: x.pts || 0, reb: x.reb || 0, ast: x.ast || 0, stl: x.stl || 0, blk: x.blk || 0, tpm: x.tpm || 0, to: x.to || 0,
       fgp: x.fga ? (x.fgm || 0) / x.fga : null, ftp: x.fta ? (x.ftm || 0) / x.fta : null, tpp: x.tpa ? (x.tpm || 0) / x.tpa : null,
-      sal: sal, value: cur && sal ? fp / gp / sal : null };
+      sal: sal, value: cur && sal ? fp / gp / sal : null, raw: x };
   }).filter(Boolean);
   S.stRows = { season: season, rows: rows };
   return rows;
