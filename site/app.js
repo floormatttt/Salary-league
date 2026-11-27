@@ -212,6 +212,7 @@ function onPick(act, v, el) {
     return;
   }
   if (act === "pickTeam") Nav.go("team/" + v);
+  else if (act === "planTeam") { S.plan = null; Nav.go("plan/" + v); }   // planner.js
   else if (act === "plTeam") { S.pl.team = v; S.pl.limit = 150; rerender(); }
   else if (act === "plSalS") { S.pl.ss = Number(v); S.pl.limit = 150; rerender(); }
   else if (act === "logTeam") { S.lg.team = v; S.lg.n = 100; rerender(); }
@@ -531,7 +532,8 @@ function pageTeam(code) {
   var space = function (line) { var v = line - p; return '<b class="' + cls(v) + '">' + money(v) + "</b>"; };
   var head = '<div class="pagehead team-banner"' + teamStyle(t.code) + '><div class="tm"><div class="badge-team">' + esc(t.code) + "</div><div><h1>" + esc(t.name) + '</h1><div class="sub">' + esc(t.owner) + " · " + record(t) +
     " · " + f1(t.pf) + " PF" + (t.rank != null ? " · ranked #" + t.rank : "") + "</div></div></div>" +
-    dropdown("pickTeam", t.code, teamItems(), "Team", "on-banner") + "</div>";
+    '<div class="row" style="gap:8px"><a class="btn on-banner" href="#plan/' + esc(t.code) + '">Salary planner</a>' +
+    dropdown("pickTeam", t.code, teamItems(), "Team", "on-banner") + "</div></div>";
   // room under each line: the line, then what's past it (colored like that level)
   var lines = [[150, "1st apron", "first"], [200, "2nd apron", "second"], [250, "Luxury tax", "tax"], [lim.hardCap, "Hard cap", "over"]];
   var roomCells = lines.map(function (ln) {
