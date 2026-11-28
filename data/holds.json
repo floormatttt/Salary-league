@@ -31,5 +31,7 @@
 {"id":30,"code":"UTA","name":"Bradley Beal (cap hold)","added":"2026-11-26T00:39:33.228Z","note":"Imported from the UTA tab"},
 {"id":31,"code":"UTA","name":"Jeremy Sochan (cap hold)","added":"2026-11-26T00:39:33.228Z","note":"Imported from the UTA tab"},
 {"id":32,"code":"UTA","name":"Killian Hayes (cap hold)","added":"2026-11-26T00:39:33.228Z","note":"Imported from the UTA tab"},
-{"id":33,"code":"UTA","name":"Tyler Smith (cap hold)","added":"2026-11-26T00:39:33.228Z","note":"Imported from the UTA tab"}
+{"id":33,"code":"UTA","name":"Tyler Smith (cap hold)","added":"2026-11-26T00:39:33.228Z","note":"Imported from the UTA tab"},
+{"id":34,"code":"ATL","name":"Kyle Anderson (cap hold)","added":"2026-11-27T21:02:11.980Z","note":"Dropped (sync)"},
+{"id":35,"code":"NYK","name":"Narcisse Ngoy (cap hold)","added":"2026-11-27T23:51:10.804Z","note":"Dropped (sync)"}
 ]

@@ -1,4 +1,9 @@
 [
+{"ts":"2026-11-27T23:51:10.804Z","type":"Drop","teams":"New York","players":"Narcisse Ngoy","details":"contract → cap hold; added to NYK cap holds","status":"Cap hold created"},
+{"ts":"2026-11-27T23:50:04.058Z","type":"Trade","teams":"Denver ↔ New York","players":"Denver gets: Trey Murphy III, Thomas Sorber, 2029 2nd (Dallas's), 2027 2nd (New Orleans's)  |  New York gets: Bobby Portis Jr., Ronald Holland II, Narcisse Ngoy, 2029 1st (Denver's), 2027 1st (New Orleans's)","details":"","status":"Logged"},
+{"ts":"2026-11-27T22:11:22.598Z","type":"Trade","teams":"Atlanta ↔ Denver","players":"Atlanta gets: Jack Kayil, Felix Okpara, Otega Oweh, 2027 1st (Toronto's)  |  Denver gets: Kyle Kuzma, 2029 2nd (Golden State's)","details":"","status":"Logged"},
+{"ts":"2026-11-27T21:02:11.980Z","type":"Drop","teams":"Atlanta","players":"Kyle Anderson","details":"contract → cap hold; added to ATL cap holds","status":"Cap hold created"},
+{"ts":"2026-11-27T21:01:48.015Z","type":"Trade","teams":"Atlanta ↔ Utah","players":"Atlanta gets: Kyle Anderson  |  Utah gets: Buddy Hield","details":"","status":"Logged"},
 {"ts":"2026-11-27T00:18:27.918Z","type":"Commissioner drop","teams":"Roster 13 (unmapped)","players":"Bobi Klintman DUPLICATE","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
 {"ts":"2026-11-27T00:18:27.918Z","type":"Commissioner drop","teams":"Roster 13 (unmapped)","players":"Matas Buzelis DUPLICATE","details":"⚠ not on the contracts list; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
 {"ts":"2026-11-27T00:18:21.644Z","type":"Commissioner drop","teams":"Roster 32 (unmapped)","players":"Kylor Kelley","details":"contract → cap hold; ⚠ team not mapped; add the cap hold by hand","status":"⚠ Review"},
