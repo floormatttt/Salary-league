@@ -1,4 +1,6 @@
 [
+{"ts":"2026-11-28T05:22:36.764Z","type":"Trade","teams":"Minnesota ↔ Houston","players":"Minnesota gets: Herbert Jones, 2027 2nd (own)  |  Houston gets: Quentin Grimes","details":"","status":"Logged"},
+{"ts":"2026-11-28T05:22:14.502Z","type":"Trade","teams":"Minnesota ↔ Los Angeles (C)","players":"Minnesota gets: Marvin Bagley III, 2027 1st (Dallas's), 2029 1st (Los Angeles (C)'s)  |  Los Angeles (C) gets: Jaime Jaquez Jr.","details":"","status":"Logged"},
 {"ts":"2026-11-28T03:47:27.967Z","type":"Trade","teams":"Atlanta ↔ Houston","players":"Atlanta gets: Jose Alvarado, Cody Williams, 2028 2nd (Dallas's)  |  Houston gets: Herbert Jones, Sam Hauser","details":"","status":"Logged"},
 {"ts":"2026-11-28T03:45:00.664Z","type":"Trade","teams":"Charlotte ↔ Houston","players":"Charlotte gets: Josh Okogie, Craig Porter Jr.  |  Houston gets: 2028 2nd (Cleveland's)","details":"","status":"Logged"},
 {"ts":"2026-11-27T23:51:10.804Z","type":"Drop","teams":"New York","players":"Narcisse Ngoy","details":"contract → cap hold; added to NYK cap holds","status":"Cap hold created"},
