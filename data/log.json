@@ -1,4 +1,5 @@
 [
+{"ts":"2026-11-28T03:45:00.664Z","type":"Trade","teams":"Charlotte ↔ Houston","players":"Charlotte gets: Josh Okogie, Craig Porter Jr.  |  Houston gets: 2028 2nd (Cleveland's)","details":"","status":"Logged"},
 {"ts":"2026-11-27T23:51:10.804Z","type":"Drop","teams":"New York","players":"Narcisse Ngoy","details":"contract → cap hold; added to NYK cap holds","status":"Cap hold created"},
 {"ts":"2026-11-27T23:50:04.058Z","type":"Trade","teams":"Denver ↔ New York","players":"Denver gets: Trey Murphy III, Thomas Sorber, 2029 2nd (Dallas's), 2027 2nd (New Orleans's)  |  New York gets: Bobby Portis Jr., Ronald Holland II, Narcisse Ngoy, 2029 1st (Denver's), 2027 1st (New Orleans's)","details":"","status":"Logged"},
 {"ts":"2026-11-27T22:11:22.598Z","type":"Trade","teams":"Atlanta ↔ Denver","players":"Atlanta gets: Jack Kayil, Felix Okpara, Otega Oweh, 2027 1st (Toronto's)  |  Denver gets: Kyle Kuzma, 2029 2nd (Golden State's)","details":"","status":"Logged"},
