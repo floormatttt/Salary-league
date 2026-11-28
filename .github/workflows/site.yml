@@ -53,14 +53,14 @@ jobs:
     needs: sync
     if: always() && (github.event_name == 'push' || needs.sync.outputs.changed == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     # a waiting deploy is only ever replaced by a newer deploy, which publishes the latest main anyway
     concurrency:
       group: pages
       cancel-in-progress: false
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -73,5 +73,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+      # deploy-pages sometimes can't see the artifact that was just uploaded ("No artifacts named
+      # github-pages were found"); it shows up a few seconds later, so wait and try once more
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
